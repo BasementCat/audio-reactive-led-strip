@@ -6,8 +6,6 @@
 from multiprocessing import Process as BaseThread, Event, Queue
 from queue import Empty as QueueEmpty, Full as QueueFull
 
-import signal
-
 
 all_threads = {}
 stop_event = Event()
