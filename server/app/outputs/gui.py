@@ -5,14 +5,18 @@ from pyqtgraph.Qt import QtGui, QtCore
 import numpy as np
 
 from app.lib.dsp import ExpFilter
-from app.lib.threads import Thread
+from app.lib.pubsub import subscribe
+from app import Task
 
 
-class GUIThread(Thread):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+class GUI(Task):
+    def start(self):
+        super().start()
+        self.fft_plot_filter = ExpFilter(np.tile(1e-1, self.config['N_FFT_BINS']),
+                         alpha_decay=0.5, alpha_rise=0.99)
         self.make_gui()
-        self.is_output = True
+
+        subscribe('audio', self.handle)
 
     def make_gui(self):
         # Create GUI window
@@ -117,24 +121,14 @@ class GUIThread(Thread):
         self.layout = layout
         self.mel_curve = mel_curve
 
-    def run(self):
-        fft_plot_filter = ExpFilter(np.tile(1e-1, self.config['N_FFT_BINS']),
-                         alpha_decay=0.5, alpha_rise=0.99)
-        while not self.stop_event.is_set():
-            try:
-                fn, args, kwargs = self.queue.get(timeout=0.25)
-                if fn != 'audio':
-                    continue
-                mel = args[0]
-                # Plot filterbank output
-                x = np.linspace(self.config['MIN_FREQUENCY'], self.config['MAX_FREQUENCY'], len(mel))
-                self.mel_curve.setData(x=x, y=fft_plot_filter.update(mel))
-                # # Plot the color channels
-                # r_curve.setData(y=led.pixels[0])
-                # g_curve.setData(y=led.pixels[1])
-                # b_curve.setData(y=led.pixels[2])
-            except queue.Empty:
-                pass
+    def handle(self, mel):
+        # Plot filterbank output
+        x = np.linspace(self.config['MIN_FREQUENCY'], self.config['MAX_FREQUENCY'], len(mel))
+        self.mel_curve.setData(x=x, y=self.fft_plot_filter.update(mel))
+        # # Plot the color channels
+        # r_curve.setData(y=led.pixels[0])
+        # g_curve.setData(y=led.pixels[1])
+        # b_curve.setData(y=led.pixels[2])
 
-    def main_thread(self):
+    def run(self):
         self.app.processEvents()

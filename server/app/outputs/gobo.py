@@ -1,9 +1,8 @@
-import queue
 import random
 import time
 
-from . import OutputThread
-from app.lib.threads import send_to
+from . import Output
+from app.lib.pubsub import subscribe, publish
 from app.lib.misc import FPSCounter
 
 
@@ -13,7 +12,7 @@ def map_to_range(num, r_min, r_max=1):
     return ((r_max - r_min) * num) + r_min
 
 
-class BasicGoboThread(OutputThread):
+class BasicGobo(Output):
     FUNCTIONS = {
         'pan': 1,
         'tilt': 3,
@@ -53,88 +52,92 @@ class BasicGoboThread(OutputThread):
             'speed': 255,
         }
         self.last_state = dict(self.state)
+        self.fps = FPSCounter(f"Gobo {self.name}")
 
-        if self.output_config.get('LINK') and not self.output_config.get('MAPPING'):
-            # We don't actually need audio data so don't configure as an output
-            self.is_output = False
+        if self.output_config.get('MAPPING'):
+            # Need audio data
+            subscribe('audio', self.handle_audio)
+            subscribe('beat', self.handle_beat)
+            subscribe('onset', self.handle_onset)
+        # Also provide a way to get state from elsewhere
+        subscribe('set_state__' + self.name, self.handle_set_state)
 
-    def run(self):
+    def start(self):
         if hasattr(self, 'INITIALIZE'):
             self.state = dict(self.INITIALIZE)
             self.last_state = dict(self.state)
             self.send_dmx()
 
-        fps = FPSCounter(f"Gobo {self.name}")
+    def handle_audio(self, audio_samples):
+        self.update('audio', audio_samples)
 
-        while not self.stop_event.is_set():
-            with fps:
-                try:
-                    fn, args, kwargs = self.queue.get(timeout=0.25)
-                    if fn == 'set_state':
-                        self.state = args[0]
-                        self.send_dmx()
-                        self.last_state = dict(self.state)
+    def handle_beat(self):
+        self.update('beat')
+
+    def handle_onset(self):
+        self.update('onset')
+
+    def handle_set_state(self, new_state):
+        with self.fps:
+            self.state = dict(new_state)
+            self.send_dmx()
+            self.last_state = dict(self.state)
+
+    def update(self, event, data=None):
+        with self.fps:
+            config = self.output_config.get('MAPPING') or []
+            now = time.time()
+            for directive in config:
+                arg_fn = getattr(self, 'map_' + directive['function'])
+                arg = None
+                value = None
+                threshold = None
+                if event == 'audio' and directive['trigger'] == 'frequency':
+                    value = []
+                    for i in directive.get('bins') or []:
+                        try:
+                            iter(i)
+                        except TypeError:
+                            value.append(data[i])
+                        else:
+                            for j in range(i[0], i[1] + 1):
+                                value.append(data[j])
+                    if not value:
                         continue
-                    elif fn == 'onset':
-                        data = True
-                    elif fn == 'audio':
-                        data = args[0]
-                    else:
-                        continue
-                    now = time.time()
-                except queue.Empty:
-                    pass
-                else:
-                    config = self.output_config.get('MAPPING') or []
-                    if not config:
-                        continue
-                    for directive in config:
-                        arg_fn = getattr(self, 'map_' + directive['function'])
-                        arg = None
-                        value = None
-                        threshold = None
-                        if fn == 'audio' and directive['trigger'] == 'frequency':
-                            value = []
-                            for i in directive.get('bins') or []:
-                                try:
-                                    iter(i)
-                                except TypeError:
-                                    value.append(data[i])
-                                else:
-                                    for j in range(i[0], i[1] + 1):
-                                        value.append(data[j])
-                            if not value:
-                                continue
-                            # value = sum(value) / len(value)
-                            value = max(value)
-                            threshold = directive['threshold']
+                    # value = sum(value) / len(value)
+                    value = max(value)
+                    threshold = directive['threshold']
 
-                        elif fn == 'onset' and directive['trigger'] == 'onset':
-                            value = random.random() / 1.5
-                            threshold = 0
+                elif event == 'onset' and directive['trigger'] == 'onset':
+                    value = random.random() / 1.5
+                    threshold = 0
 
-                        if value is None or threshold is None:
-                            continue
+                elif event == 'beat' and directive['trigger'] == 'beat':
+                    value = random.random() / 1.5
+                    threshold = 0
 
-                        arg = arg_fn(value, threshold)
+                if value is None or threshold is None:
+                    continue
 
-                        if arg is not None:
-                            if self.last_function[directive['function']] + self.RATES[directive['function']] < now:
-                                self.last_function[directive['function']] = now
-                                self.state[directive['function']] = arg
+                arg = arg_fn(value, threshold)
 
-                self.send_dmx()
-                self.last_state = dict(self.state)
+                if arg is not None:
+                    if self.last_function[directive['function']] + self.RATES[directive['function']] < now:
+                        self.last_function[directive['function']] = now
+                        self.state[directive['function']] = arg
 
-                for linked in self.output_config.get('LINK') or []:
-                    # Prevent an infinite loop
-                    if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
-                        # TODO: log
-                        continue
-                    linked_state = dict(self.state)
-                    for fn in linked.get('INVERT') or []:
-                        linked_state[fn] = 255 - linked_state[fn]
-                    send_to(linked.get('NAME'), 'set_state', linked_state)
+            self.send_dmx()
+            self.last_state = dict(self.state)
+
+            for linked in self.output_config.get('LINK') or []:
+                # Prevent an infinite loop
+                if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
+                    # TODO: log
+                    continue
+                linked_state = dict(self.state)
+                for fn in linked.get('INVERT') or []:
+                    linked_state[fn] = 255 - linked_state[fn]
+                publish('set_state__' + linked.get('NAME'), linked_state)
 
     def _map_pan_tilt(self, function, value, threshold):
         if value < threshold:
@@ -192,10 +195,11 @@ class BasicGoboThread(OutputThread):
 
     def send_dmx(self):
         state = self.prep_dmx()
-        send_to('dmx', 'set_channels', {self.CHANNEL_MAP[chan] + self.output_config.get('ADDRESS', 1) - 1: val for chan, val in state.items()})
+        data = {self.CHANNEL_MAP[chan] + self.output_config.get('ADDRESS', 1) - 1: val for chan, val in state.items()}
+        publish('dmx', data)
 
 
-class UKingGoboThread(BasicGoboThread):
+class UKingGobo(BasicGobo):
     CHANNEL_MAP = {
         'pan': 1,
         'pan_fine': 2,
@@ -232,7 +236,7 @@ class UKingGoboThread(BasicGoboThread):
         return state
 
 
-class UnnamedGoboThread(BasicGoboThread):
+class UnnamedGobo(BasicGobo):
     CHANNEL_MAP = {
         'pan': 1,
         'pan_fine': 2,

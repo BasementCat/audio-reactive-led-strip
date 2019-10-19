@@ -2,12 +2,13 @@ import os
 import glob
 import logging
 import threading
-import queue
 import time
 
 from dmxpy.DmxPy import DmxPy
 
-from app.lib.threads import Thread
+from app import Task
+from app.lib.pubsub import subscribe
+from app.lib.misc import FPSCounter
 
 
 logger = logging.getLogger(__name__)
@@ -40,20 +41,23 @@ def find_device_file(name):
     raise RuntimeError(f"Can't find USB device {name}")
 
 
-class DMXThread(Thread):
+class DMX(Task):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
         if not self.config.get('DMX_DEVICE'):
             raise ValueError("No DMX_DEVICE in config")
 
-        self.unrestrict_queue(4)
-
         self.dmx = None
         self.dmx_lock = threading.Lock()
         self.dmx_attempt = None
+        self.delay = 1.0 / float(self.config.get('FPS', 60))
+        self.last_send = 0
+        self.fps = FPSCounter('DMX')
 
         self.get_dmx()
+
+        subscribe('dmx', self.handle)
 
     def get_dmx(self):
         if not self.dmx and self.config.get('DMX_DEVICE') != 'sink':
@@ -73,23 +77,16 @@ class DMXThread(Thread):
 
         return self.dmx
 
+    def handle(self, data):
+        dmx = self.get_dmx()
+        if dmx:
+            for chan, val in data.items():
+                dmx.setChannel(chan, val)
+
     def run(self):
-        # TODO: configurable? Use from config, already have fps
-        delay = 1.0 / float(self.config.get('FPS', 60))
-        last_send = 0
-        while not self.stop_event.is_set():
-            try:
-                fn, args, kwargs = self.queue.get(timeout=delay)
-            except queue.Empty:
-                pass
-            else:
+        if time.time() - self.last_send >= self.delay:
+            self.last_send = time.time()
+            with self.fps:
                 dmx = self.get_dmx()
                 if dmx:
-                    if fn == 'set_channels':
-                        for chan, value in args[0].items():
-                            dmx.setChannel(chan, value)
-            if dmx and time.time() - last_send >= delay:
-                # print(dmx.dmxData)
-                # print("render dmx")
-                dmx.render()
-                last_send = time.time()
+                    dmx.render()
