@@ -1,0 +1,56 @@
+{
+    "DMX_DEVICE": "0403:6001",
+    "OUTPUTS": [
+        {
+            "NAME": "back_1",
+            "DEVICE": "UnnamedGobo",
+            "ADDRESS": 1,
+            "MAPPING": [
+                {"trigger": "onset", "function": "pan"},
+                {"trigger": "onset", "function": "tilt"},
+                {"trigger": "frequency", "_bins": [[0, 2]], "function": "pan", "threshold": 0.4},
+                {"trigger": "frequency", "_bins": [[0, 2]], "function": "tilt", "threshold": 0.4},
+                {"trigger": "frequency", "bins": [[13, 20]], "function": "gobo", "threshold": 0.5},
+                {"trigger": "frequency", "bins": [[19, 23]], "function": "strobe", "threshold": 0.7},
+                {"trigger": "frequency", "bins": [[0, 23]], "function": "color", "threshold": 0.9},
+                {"trigger": "frequency", "bins": [[0, 23]], "function": "dim", "threshold": 0.05},
+
+                {"trigger": "frequency", "_bins": [[4, 12]], "function": "color", "threshold": 0.9},
+                {"trigger": "frequency", "_bins": [[0, 23]], "function": "pan", "threshold": 0.6},
+                {"trigger": "frequency", "_bins": [[0, 23]], "function": "tilt", "threshold": 0.6}
+            ],
+            "LINK": [
+                {"NAME": "back_2", "INVERT": ["pan"]},
+                {"NAME": "mid_1", "INVERT": ["pan"]},
+                {"NAME": "mid_2"},
+                {"NAME": "mid_3", "INVERT": ["pan"]},
+                {"NAME": "mid_4"}
+            ]
+        },
+        {
+            "NAME": "back_2",
+            "DEVICE": "UnnamedGobo",
+            "ADDRESS": 12
+        },
+        {
+            "NAME": "mid_1",
+            "DEVICE": "UKingGobo",
+            "ADDRESS": 23
+        },
+        {
+            "NAME": "mid_2",
+            "DEVICE": "UKingGobo",
+            "ADDRESS": 34
+        },
+        {
+            "NAME": "mid_3",
+            "DEVICE": "UKingGobo",
+            "ADDRESS": 45
+        },
+        {
+            "NAME": "mid_4",
+            "DEVICE": "UKingGobo",
+            "ADDRESS": 56
+        }
+    ]
+}
