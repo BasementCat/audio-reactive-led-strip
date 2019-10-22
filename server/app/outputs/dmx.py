@@ -77,11 +77,13 @@ class DMX(Task):
 
         return self.dmx
 
-    def handle(self, data):
+    def handle(self, data, force=False):
         dmx = self.get_dmx()
         if dmx:
             for chan, val in data.items():
                 dmx.setChannel(chan, val)
+            if force:
+                dmx.render()
 
     def run(self):
         if time.time() - self.last_send >= self.delay:

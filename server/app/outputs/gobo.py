@@ -1,7 +1,9 @@
 import random
 import time
+import itertools
 
 from . import Output
+from app.effects import Effect
 from app.lib.pubsub import subscribe, publish
 from app.lib.misc import FPSCounter
 
@@ -53,6 +55,9 @@ class BasicGobo(Output):
         }
         self.last_state = dict(self.state)
         self.fps = FPSCounter(f"Gobo {self.name}")
+        self.effects = {}
+        # TODO: better way to do this?
+        self.last_total_intensity = 0
 
         if self.output_config.get('MAPPING'):
             # Need audio data
@@ -87,6 +92,10 @@ class BasicGobo(Output):
         with self.fps:
             config = self.output_config.get('MAPPING') or []
             now = time.time()
+            # TODO: better way to do this?
+            if event == 'audio':
+                self.last_total_intensity = sum(data)
+
             for directive in config:
                 arg_fn = getattr(self, 'map_' + directive['function'])
                 arg = None
@@ -139,6 +148,56 @@ class BasicGobo(Output):
                     linked_state[fn] = 255 - linked_state[fn]
                 publish('set_state__' + linked.get('NAME'), linked_state)
 
+    def run(self):
+        # HAX! seriously, do this better
+        if self.output_config.get('MAPPING'):
+            # TODO: better way to do this? (intensity)
+            if self.last_total_intensity > 0 and time.time() - max(self.last_function['pan'], self.last_function['tilt']) > 2:
+                if self.state['speed'] != 31:
+                    self.state['speed'] = 31
+                    self.send_dmx(True)
+                if 'pan' not in self.effects:
+                    self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 5)
+                if 'tilt' not in self.effects:
+                    self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 5)
+            else:
+                for k in ('pan', 'tilt'):
+                    if k in self.effects:
+                        del self.effects[k]
+                if self.state['speed'] != 255:
+                    self.state['speed'] = 255
+                    self.send_dmx(True)
+
+        done = []
+        for fn, e in self.effects.items():
+            value = None
+            if e.done:
+                value = e.done_value
+                done.append(fn)
+            else:
+                value = e.value
+
+            self.state[fn] = value
+            # print(f"effect {fn} {value}")
+
+        if self.effects:
+            # Nothing would have changed if there are no effects
+            self.send_dmx()
+            # TODO: abstract this out
+            for linked in self.output_config.get('LINK') or []:
+                # Prevent an infinite loop
+                if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
+                    # TODO: log
+                    continue
+                linked_state = dict(self.state)
+                for fn in linked.get('INVERT') or []:
+                    linked_state[fn] = 255 - linked_state[fn]
+                publish('set_state__' + linked.get('NAME'), linked_state)
+
+        for k in done:
+            del self.effects[k]
+
+
     def _map_pan_tilt(self, function, value, threshold):
         if value < threshold:
             return
@@ -172,17 +231,18 @@ class BasicGobo(Output):
 
     def map_strobe(self, value, threshold):
         # should set a high threshold for this
-        # TODO: turn off after a short period
         if value > threshold:
-            return int(map_to_range(value, threshold) * 255)
-        return 0
+            # TODO: might need a different value for some lights
+            if 'strobe' not in self.effects:
+                self.effects['strobe'] = Effect(255, 255, 1, 0)
 
     def map_dim(self, value, threshold):
-        # TODO: not useful unless it can be timed
-        # return 255
         if value > threshold:
+            if 'dim' in self.effects:
+                del self.effects['dim']
             return 255
-        return int(map_to_range(value, 0, threshold) * 255)
+        if 'dim' not in self.effects and self.state['dim'] > 0:
+            self.effects['dim'] = Effect(255, 0, 0.5)
 
     def prep_dmx(self):
         # changed = {}
@@ -191,12 +251,33 @@ class BasicGobo(Output):
         #         changed[k] = v
         # if changed:
         #     print(self.name, changed)
-        return dict(self.state)
+        out = dict(self.state)
+        # # TODO: do this better
+        # for prop, ranges in self.output_config.get('RANGES', {}).items():
+        #     val = out[prop]
+        #     in_range = False
+        #     for range_ in ranges:
+        #         if val >= range_[0] and val <= range_[1]:
+        #             in_range = True
+        #             break
+        #     if in_range:
+        #         break
 
-    def send_dmx(self):
+        #     # If not in range, find closest range
+        #     diffs = [(abs(v - val), v) for v in itertools.chain(*ranges)]
+        #     new_val = diff = None
+        #     for tempdiff, tempval in diffs:
+        #         if diff is None or diff < tempdiff:
+        #             diff = tempdiff
+        #             new_val = tempval
+        #     out[prop] = int(new_val)
+
+        return out
+
+    def send_dmx(self, force=False):
         state = self.prep_dmx()
         data = {self.CHANNEL_MAP[chan] + self.output_config.get('ADDRESS', 1) - 1: val for chan, val in state.items()}
-        publish('dmx', data)
+        publish('dmx', data, force)
 
 
 class UKingGobo(BasicGobo):
@@ -221,8 +302,8 @@ class UKingGobo(BasicGobo):
         'tilt_fine': 0,
         'color': 0,
         'gobo': 0,
-        'strobe': 8,
-        'dim': 255,
+        'strobe': 0,
+        'dim': 0,
         'speed': 255,
         'mode': 0,
         'dim_mode': 0
@@ -231,6 +312,7 @@ class UKingGobo(BasicGobo):
     def prep_dmx(self):
         state = super().prep_dmx()
         state['speed'] = 255 - state['speed']
+        state['strobe'] = 255 - state['strobe']
         state['mode'] = 0
         state['dim_mode'] = 0
         return state
@@ -259,7 +341,7 @@ class UnnamedGobo(BasicGobo):
         'color': 0,
         'gobo': 0,
         'strobe': 0,
-        'dim': 255,
+        'dim': 0,
         'speed': 255,
         'mode': 0,
         'dim_mode': 0,
