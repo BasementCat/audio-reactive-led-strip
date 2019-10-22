@@ -1,4 +1,5 @@
 import time
+import sys
 
 import numpy as np
 import pyaudio
@@ -20,14 +21,26 @@ class DeviceInput(Input):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.p = pyaudio.PyAudio()
+        valid_input_devices = {}
+
+        for i in range(self.p.get_device_count()):
+            info = self.p.get_device_info_by_index(i)
+            if info.get('maxInputChannels') > 0:
+                valid_input_devices[i] = info.get('name')
+
+        device = self.config.get('INPUT_DEVICE_INDEX')
+        if device not in valid_input_devices:
+            print(f"Invalid device index {device} - valid devices are:")
+            for k in sorted(valid_input_devices.keys()):
+                print(f"{k}: {valid_input_devices[k]}")
+            sys.exit(1)
+
         self.stream = self.p.open(format=pyaudio.paInt16,
                         channels=1,
                         rate=self.config['MIC_RATE'],
                         input=True,
                         frames_per_buffer=self.frames_per_buffer,
-                        # TODO: configurable
-                        input_device_index=7
-                        # input_device_index=8
+                        input_device_index=device
                         )
         self.overflows = 0
         self.prev_ovf_time = time.time()

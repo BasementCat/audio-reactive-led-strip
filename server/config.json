@@ -1,6 +1,7 @@
 {
     "DMX_DEVICE": "0403:6001",
     "USE_GUI": false,
+    "INPUT_DEVICE_INDEX": 7,
     "OUTPUTS": [
         {
             "NAME": "back_1",
