@@ -84,7 +84,11 @@
             "HOST": "10.0.1.10",
             "PORT": 7777,
             "N_PIXELS": 120,
-            "EFFECT": "scroll"
+            "EFFECT": "scroll",
+            "FADEOUT": {
+                "THRESHOLD": 0.1,
+                "SPEED": 1
+            }
         }
     ]
 }

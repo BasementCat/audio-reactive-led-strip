@@ -5,6 +5,7 @@ import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 
 from . import Output
+from app.effects import Effect
 from app.lib.dsp import ExpFilter
 from app.lib.pubsub import subscribe, publish
 from app.lib.misc import FPSCounter
@@ -81,6 +82,10 @@ class BaseLEDStrip(Output):
 
         self._prev_pixels = np.tile(253, (3, self.output_config['N_PIXELS']))
         self.pixels = np.tile(1, (3, self.output_config['N_PIXELS']))
+        self.brightness = 1.0
+        self.last_total_intensity = 0
+
+        self.effects = {}
 
         self.fps = FPSCounter(f"{self.__class__.__name__} {self.name}")
 
@@ -151,15 +156,40 @@ class BaseLEDStrip(Output):
         output = np.array([r, g,b]) * 255
         return output
 
+    def run(self):
+        if self.output_config.get('FADEOUT', {}).get('THRESHOLD'):
+            if self.last_total_intensity > self.output_config.get('FADEOUT', {}).get('THRESHOLD'):
+                if 'brightness' in self.effects:
+                    del self.effects['brightness']
+                self.brightness = 1.0
+            else:
+                if 'brightness' not in self.effects:
+                    self.effects['brightness'] = Effect(self.brightness * 100, 0, self.output_config.get('FADEOUT', {}).get('DURATION', 1), 0)
+
+        done = []
+        for k, v in self.effects.items():
+            value = None
+            if v.done:
+                value = v.done_value
+                done.append(k)
+            else:
+                value = v.value
+
+            if k == 'brightness':
+                self.brightness = v.value / 100.0
+
+        for k in done:
+            del self.effects[k]
+
     def handle(self, data):
         with self.fps:
+            self.last_total_intensity = np.sum(data)
             fn = getattr(self, 'visualize_' + self.output_config.get('EFFECT', 'scroll'), None)
             if not fn:
                 logger.error("Bad effect: %s", self.output_config.get('EFFECT'))
                 return
             self.pixels = self.visualize_scroll(data)
-            self.send_data()
-            publish('led_data', {'name': self.name, 'pixels': self.pixels})
+            self.send_data(self.pixels)
 
     def send_data(self, data):
         raise NotImplementedError()
@@ -171,7 +201,7 @@ class RemoteStrip(BaseLEDStrip):
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def send_data(self):
+    def send_data(self, data):
         """Sends UDP packets to ESP8266 to update LED strip values
 
         The ESP8266 will receive and decode the packets to determine what values
@@ -187,11 +217,10 @@ class RemoteStrip(BaseLEDStrip):
             b (0 to 255): Blue value of LED
         """
         # Truncate values and cast to integer
-        self.pixels = np.clip(self.pixels, 0, 255).astype(int)
+        p = (np.clip(data, 0, 255) * self.brightness).astype(int)
         # Optionally apply gamma correc tio
         # TODO: implement
         # p = _gamma[self.pixels] if config.SOFTWARE_GAMMA_CORRECTION else np.copy(self.pixels)
-        p = np.copy(self.pixels)
         # TODO: figure out automatically
         MAX_PIXELS_PER_PACKET = 126
         # Pixel indices
@@ -208,4 +237,6 @@ class RemoteStrip(BaseLEDStrip):
                 m.append(p[2][i])  # Pixel blue value
             m = bytes(m)
             self._sock.sendto(m, (self.output_config['HOST'], self.output_config['PORT']))
-        self._prev_pixels = np.copy(p)
+
+        publish('led_data', {'name': self.name, 'pixels': p})
+        self._prev_pixels = np.copy(self.pixels)
