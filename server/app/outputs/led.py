@@ -1,5 +1,7 @@
 import socket
 import logging
+import time
+import random
 
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
@@ -61,6 +63,43 @@ def interpolate(y, new_length):
     return z
 
 
+# Effects
+
+class IdleFlameEffect(object):
+    COLORS = {
+        'orange': (226, 121, 35),
+        'purple': (158, 8, 148),
+        'green': (74, 150, 12),
+    }
+
+    # make it look like an effect
+    done = False
+    done_value = None
+
+    def __init__(self, n_leds, color='random'):
+        if color != 'random' and color not in self.COLORS:
+            color = 'random'
+        if color == 'random':
+            color = random.choice(list(self.COLORS.keys()))
+
+        self.n_leds = n_leds
+        self.color = color
+        self.next_switch = 0
+
+    @property
+    def value(self):
+        if self.next_switch <= time.time():
+            self.pixels = np.array([[self.COLORS[self.color][i] for _ in range(self.n_leds)] for i in range(3)])
+            for i in range(self.n_leds):
+                flicker = random.randint(0, 55)
+                self.pixels[0][i] = max(0, self.pixels[0][i] - flicker)
+                self.pixels[1][i] = max(0, self.pixels[1][i] - flicker)
+                self.pixels[2][i] = max(0, self.pixels[2][i] - flicker)
+            self.next_switch = time.time() + (random.randint(10, 113) / 1000.0)
+
+        return self.pixels
+
+
 class BaseLEDStrip(Output):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -83,13 +122,17 @@ class BaseLEDStrip(Output):
         self._prev_pixels = np.tile(253, (3, self.output_config['N_PIXELS']))
         self.pixels = np.tile(1, (3, self.output_config['N_PIXELS']))
         self.brightness = 1.0
-        self.last_total_intensity = 0
 
         self.effects = {}
 
         self.fps = FPSCounter(f"{self.__class__.__name__} {self.name}")
 
-        subscribe('audio', self.handle)
+        subscribe('audio', self.handle_audio)
+        if self.output_config.get('IDLE'):
+            subscribe('idle_instant', self.handle_idle_instant)
+            if self.output_config['IDLE'].get('FADEOUT') and self.output_config['IDLE'].get('NAME'):
+                # If we're fading out on idle, don't apply the idle effect until afterwards
+                subscribe('idle_for', self.handle_idle_for, condition=lambda e, t, *a, **ka: t and t > self.output_config['IDLE']['FADEOUT'])
 
     def visualize_scroll(self, y):
         """Effect that originates in the center and scrolls outwards"""
@@ -156,16 +199,44 @@ class BaseLEDStrip(Output):
         output = np.array([r, g,b]) * 255
         return output
 
-    def run(self):
-        if self.output_config.get('FADEOUT', {}).get('THRESHOLD'):
-            if self.last_total_intensity > self.output_config.get('FADEOUT', {}).get('THRESHOLD'):
-                if 'brightness' in self.effects:
-                    del self.effects['brightness']
-                self.brightness = 1.0
+    def handle_idle_instant(self, is_idle):
+        # Assume idle config is set
+        if is_idle:
+            if self.output_config['IDLE'].get('FADEOUT'):
+                # Fade out on idle
+                # Called only when the state changes so we can make some assumptions
+                # Idle anim will be set by idle_for
+                self.effects['brightness'] = Effect(self.brightness * 100, 0, self.output_config['IDLE']['FADEOUT'], 0)
             else:
-                if 'brightness' not in self.effects:
-                    self.effects['brightness'] = Effect(self.brightness * 100, 0, self.output_config.get('FADEOUT', {}).get('DURATION', 1), 0)
+                # No fadeout, so apply the animation as appropriate
+                self._apply_idle_anim()
+        else:
+            self._clear_idle_anim()
 
+    def handle_idle_for(self, idle_for, condition=None):
+        # Only called if idle config is set, and fadeout is set, and if the condition changes
+        if condition:
+            self._apply_idle_anim()
+        # Don't clear here, it'll be cleared as soon as the instant idle state changes
+
+    def _apply_idle_anim(self):
+        if self.output_config['IDLE'].get('NAME'):
+            effect = globals().get('Idle' + self.output_config['IDLE']['NAME'] + 'Effect', None)
+            if effect:
+                # Add the brightness/idle
+                if self.output_config['IDLE'].get('FADEIN'):
+                    self.effects['brightness'] = Effect(0, 100, self.output_config['IDLE']['FADEIN'], 1)
+                self.effects['idle'] = effect(self.output_config['N_PIXELS'], **self.output_config['IDLE'].get('ARGS', {}))
+
+    def _clear_idle_anim(self):
+        for k in ('brightness', 'idle'):
+            try:
+                del self.effects[k]
+            except KeyError:
+                pass
+            self.brightness = 1
+
+    def run(self):
         done = []
         for k, v in self.effects.items():
             value = None
@@ -178,18 +249,21 @@ class BaseLEDStrip(Output):
             if k == 'brightness':
                 self.brightness = v.value / 100.0
 
+            if k == 'idle':
+                self.pixels = v.value
+
         for k in done:
             del self.effects[k]
 
-    def handle(self, data):
+        self.send_data(self.pixels)
+
+    def handle_audio(self, data):
         with self.fps:
-            self.last_total_intensity = np.sum(data)
             fn = getattr(self, 'visualize_' + self.output_config.get('EFFECT', 'scroll'), None)
             if not fn:
                 logger.error("Bad effect: %s", self.output_config.get('EFFECT'))
                 return
             self.pixels = self.visualize_scroll(data)
-            self.send_data(self.pixels)
 
     def send_data(self, data):
         raise NotImplementedError()
