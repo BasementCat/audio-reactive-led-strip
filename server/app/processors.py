@@ -1,3 +1,5 @@
+import time
+
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 import aubio
@@ -89,3 +91,30 @@ class BeatProcessor(Processor):
             #     send_to('@output', 'onset')
             # # if is_beat:
             # #     print("beat", self.beat_detect.get_last_s())
+
+
+class IdleProcessor(Processor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fps = FPSCounter('Idle Processor')
+        self.is_idle_instant = False
+        self.idle_since = None
+
+        subscribe('audio', self.handle)
+
+    def handle(self, audio):
+        threshold = self.config.get('IDLE_THRESHOLD', 0.1)
+        v_avg = np.sum(audio) / len(audio)
+        if v_avg < threshold:
+            if not self.is_idle_instant:
+                self.is_idle_instant = True
+                publish('idle_instant', True)
+            self.idle_since = self.idle_since or time.time()
+            publish('idle_for', time.time() - self.idle_since)
+        else:
+            if self.is_idle_instant:
+                self.is_idle_instant = False
+                publish('idle_instant', False)
+            if self.idle_since:
+                self.idle_since = None
+                publish('idle_for', None)

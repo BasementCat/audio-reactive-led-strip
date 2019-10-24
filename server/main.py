@@ -4,7 +4,7 @@
 from app.lib.config import parse_config
 # from app.lib.threads import start_threads, stop_threads, wait_threads, get_main_thread_callbacks, stop_event
 from app.inputs import DeviceInput
-from app.processors import SmoothingProcessor, BeatProcessor
+from app.processors import SmoothingProcessor, BeatProcessor, IdleProcessor
 from app.outputs.dmx import DMX
 from app.outputs.gui import GUI
 from app.outputs.gobo import UKingGobo, UnnamedGobo
@@ -16,6 +16,7 @@ tasks = [
     DeviceInput('audioinput', config),
     SmoothingProcessor('smoothing', config),
     BeatProcessor('beat', config),
+    IdleProcessor('idle', config),
 ]
 for output in config['OUTPUTS']:
     tasks.append(globals()[output['DEVICE']](config, output))
