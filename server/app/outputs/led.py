@@ -1,11 +1,16 @@
-import queue
 import socket
+import logging
 
 import numpy as np
 from scipy.ndimage.filters import gaussian_filter1d
 
-from . import OutputThread
+from . import Output
 from app.lib.dsp import ExpFilter
+from app.lib.pubsub import subscribe, publish
+from app.lib.misc import FPSCounter
+
+
+logger = logging.getLogger()
 
 
 # TODO: put this crap in a library
@@ -55,30 +60,31 @@ def interpolate(y, new_length):
     return z
 
 
-class BaseLEDThread(OutputThread):
+class BaseLEDStrip(Output):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-        # TODO: From output config
-        self.config['N_PIXELS'] = 120
-
-        self.p = np.tile(1.0, (3, self.config['N_PIXELS'] // 2))
+        self.p = np.tile(1.0, (3, self.output_config['N_PIXELS'] // 2))
         self.gain = ExpFilter(np.tile(0.01, self.config['N_FFT_BINS']),
                      alpha_decay=0.001, alpha_rise=0.99)
-        self.common_mode = ExpFilter(np.tile(0.01, self.config['N_PIXELS'] // 2),
+        self.common_mode = ExpFilter(np.tile(0.01, self.output_config['N_PIXELS'] // 2),
                      alpha_decay=0.99, alpha_rise=0.01)
-        self.r_filt = ExpFilter(np.tile(0.01, self.config['N_PIXELS'] // 2),
+        self.r_filt = ExpFilter(np.tile(0.01, self.output_config['N_PIXELS'] // 2),
                        alpha_decay=0.2, alpha_rise=0.99)
-        self.g_filt = ExpFilter(np.tile(0.01, self.config['N_PIXELS'] // 2),
+        self.g_filt = ExpFilter(np.tile(0.01, self.output_config['N_PIXELS'] // 2),
                        alpha_decay=0.05, alpha_rise=0.3)
-        self.b_filt = ExpFilter(np.tile(0.01, self.config['N_PIXELS'] // 2),
+        self.b_filt = ExpFilter(np.tile(0.01, self.output_config['N_PIXELS'] // 2),
                        alpha_decay=0.1, alpha_rise=0.5)
-        self.p_filt = ExpFilter(np.tile(1, (3, self.config['N_PIXELS'] // 2)),
+        self.p_filt = ExpFilter(np.tile(1, (3, self.output_config['N_PIXELS'] // 2)),
                        alpha_decay=0.1, alpha_rise=0.99)
-        self._prev_spectrum = np.tile(0.01, self.config['N_PIXELS'] // 2)
+        self._prev_spectrum = np.tile(0.01, self.output_config['N_PIXELS'] // 2)
 
-        self._prev_pixels = np.tile(253, (3, self.config['N_PIXELS']))
-        self.pixels = np.tile(1, (3, self.config['N_PIXELS']))
+        self._prev_pixels = np.tile(253, (3, self.output_config['N_PIXELS']))
+        self.pixels = np.tile(1, (3, self.output_config['N_PIXELS']))
+
+        self.fps = FPSCounter(f"{self.__class__.__name__} {self.name}")
+
+        subscribe('audio', self.handle)
 
     def visualize_scroll(self, y):
         """Effect that originates in the center and scrolls outwards"""
@@ -106,7 +112,7 @@ class BaseLEDThread(OutputThread):
         self.gain.update(y)
         y /= self.gain.value
         # Scale by the width of the LED strip
-        y *= float((self.config['N_PIXELS'] // 2) - 1)
+        y *= float((self.output_config['N_PIXELS'] // 2) - 1)
         # Map color channels according to energy in the different freq bands
         scale = 0.9
         r = int(np.mean(y[:len(y) // 3]**scale))
@@ -130,7 +136,7 @@ class BaseLEDThread(OutputThread):
 
     def visualize_spectrum(self, y):
         """Effect that maps the Mel filterbank frequencies onto the LED strip"""
-        y = np.copy(interpolate(y, self.config['N_PIXELS'] // 2))
+        y = np.copy(interpolate(y, self.output_config['N_PIXELS'] // 2))
         self.common_mode.update(y)
         diff = y - self._prev_spectrum
         self._prev_spectrum = np.copy(y)
@@ -145,24 +151,21 @@ class BaseLEDThread(OutputThread):
         output = np.array([r, g,b]) * 255
         return output
 
-    def run(self):
-        while not self.stop_event.is_set():
-            try:
-                fn, args, kwargs = self.queue.get(timeout=0.25)
-                if fn != 'audio':
-                    continue
-            except queue.Empty:
-                continue
-
-            # TODO: configure
-            self.pixels = self.visualize_scroll(args[0])
+    def handle(self, data):
+        with self.fps:
+            fn = getattr(self, 'visualize_' + self.output_config.get('EFFECT', 'scroll'), None)
+            if not fn:
+                logger.error("Bad effect: %s", self.output_config.get('EFFECT'))
+                return
+            self.pixels = self.visualize_scroll(data)
             self.send_data()
+            publish('led_data', {'name': self.name, 'pixels': self.pixels})
 
     def send_data(self, data):
         raise NotImplementedError()
 
 
-class RemoteStripThread(BaseLEDThread):
+class RemoteStrip(BaseLEDStrip):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
@@ -204,6 +207,5 @@ class RemoteStripThread(BaseLEDThread):
                 m.append(p[1][i])  # Pixel green value
                 m.append(p[2][i])  # Pixel blue value
             m = bytes(m)
-            # TODO: from output config
-            self._sock.sendto(m, ('10.0.1.10', 7777))
+            self._sock.sendto(m, (self.output_config['HOST'], self.output_config['PORT']))
         self._prev_pixels = np.copy(p)

@@ -76,6 +76,15 @@
             "NAME": "mid_4",
             "DEVICE": "UKingGobo",
             "ADDRESS": 56
+        },
+
+        {
+            "NAME": "ledstrip",
+            "DEVICE":"RemoteStrip",
+            "HOST": "10.0.1.10",
+            "PORT": 7777,
+            "N_PIXELS": 120,
+            "EFFECT": "scroll"
         }
     ]
 }

@@ -8,7 +8,7 @@ from app.processors import SmoothingProcessor, BeatProcessor
 from app.outputs.dmx import DMX
 from app.outputs.gui import GUI
 from app.outputs.gobo import UKingGobo, UnnamedGobo
-# from app.outputs.led import RemoteStripThread
+from app.outputs.led import RemoteStrip
 
 
 config = parse_config()
@@ -19,7 +19,6 @@ tasks = [
 ]
 for output in config['OUTPUTS']:
     tasks.append(globals()[output['DEVICE']](config, output))
-# # RemoteStripThread('remote', config)
 if config['USE_GUI']:
     tasks.append(GUI('gui', config))
 # Add DMX last so it gets called last

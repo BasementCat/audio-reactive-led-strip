@@ -14,6 +14,7 @@ class GUI(Task):
         super().start()
         self.fft_plot_filter = ExpFilter(np.tile(1e-1, self.config['N_FFT_BINS']),
                          alpha_decay=0.5, alpha_rise=0.99)
+        self.led_plots = {}
         self.make_gui()
 
         subscribe('audio', self.handle)
@@ -35,10 +36,11 @@ class GUI(Task):
         mel_curve = pg.PlotCurveItem()
         mel_curve.setData(x=x_data, y=x_data*0)
         fft_plot.addItem(mel_curve)
-        def add_led_plot():
+
+        def add_led_plot(o):
             # Visualization plot
             layout.nextRow()
-            led_plot = layout.addPlot(title='Visualization Output', colspan=3)
+            led_plot = layout.addPlot(title='LED: ' + o['NAME'], colspan=3)
             led_plot.setRange(yRange=[-5, 260])
             led_plot.disableAutoRange(axis=pg.ViewBox.YAxis)
             # Pen for each of the color channel curves
@@ -50,7 +52,7 @@ class GUI(Task):
             g_curve = pg.PlotCurveItem(pen=g_pen)
             b_curve = pg.PlotCurveItem(pen=b_pen)
             # Define x data
-            x_data = np.array(range(1, self.config['N_PIXELS'] + 1))
+            x_data = np.array(range(1, o['N_PIXELS'] + 1))
             r_curve.setData(x=x_data, y=x_data*0)
             g_curve.setData(x=x_data, y=x_data*0)
             b_curve.setData(x=x_data, y=x_data*0)
@@ -58,6 +60,16 @@ class GUI(Task):
             led_plot.addItem(r_curve)
             led_plot.addItem(g_curve)
             led_plot.addItem(b_curve)
+
+            subscribe('led_data', self.handle_led_data)
+
+            self.led_plots[o['NAME']] = (led_plot, r_curve, g_curve, b_curve)
+
+        for o in self.config.get('OUTPUTS') or []:
+            # TODO: better way to figure this out
+            if o.get('DEVICE', '').endswith('Strip'):
+                add_led_plot(o)
+
         # Frequency range label
         freq_label = pg.LabelItem('')
         # Frequency slider
@@ -125,10 +137,15 @@ class GUI(Task):
         # Plot filterbank output
         x = np.linspace(self.config['MIN_FREQUENCY'], self.config['MAX_FREQUENCY'], len(mel))
         self.mel_curve.setData(x=x, y=self.fft_plot_filter.update(mel))
-        # # Plot the color channels
-        # r_curve.setData(y=led.pixels[0])
-        # g_curve.setData(y=led.pixels[1])
-        # b_curve.setData(y=led.pixels[2])
+
+    def handle_led_data(self, data):
+        # Plot the color channels
+        if data['name'] not in self.led_plots:
+            return
+        _, r_curve, g_curve, b_curve = self.led_plots[data['name']]
+        r_curve.setData(y=data['pixels'][0])
+        g_curve.setData(y=data['pixels'][1])
+        b_curve.setData(y=data['pixels'][2])
 
     def run(self):
         self.app.processEvents()
