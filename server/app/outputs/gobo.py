@@ -245,33 +245,7 @@ class BasicGobo(Output):
             self.effects['dim'] = Effect(255, 0, 0.5)
 
     def prep_dmx(self):
-        # changed = {}
-        # for k, v in self.state.items():
-        #     if v != self.last_state[k]:
-        #         changed[k] = v
-        # if changed:
-        #     print(self.name, changed)
         out = dict(self.state)
-        # # TODO: do this better
-        # for prop, ranges in self.output_config.get('RANGES', {}).items():
-        #     val = out[prop]
-        #     in_range = False
-        #     for range_ in ranges:
-        #         if val >= range_[0] and val <= range_[1]:
-        #             in_range = True
-        #             break
-        #     if in_range:
-        #         break
-
-        #     # If not in range, find closest range
-        #     diffs = [(abs(v - val), v) for v in itertools.chain(*ranges)]
-        #     new_val = diff = None
-        #     for tempdiff, tempval in diffs:
-        #         if diff is None or diff < tempdiff:
-        #             diff = tempdiff
-        #             new_val = tempval
-        #     out[prop] = int(new_val)
-
         return out
 
     def send_dmx(self, force=False):
