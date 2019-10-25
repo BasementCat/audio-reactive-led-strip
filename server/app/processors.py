@@ -99,6 +99,8 @@ class IdleProcessor(Processor):
         self.fps = FPSCounter('Idle Processor')
         self.is_idle_instant = False
         self.idle_since = None
+        self.is_dead_instant = False
+        self.dead_since = None
 
         subscribe('audio', self.handle)
 
@@ -119,3 +121,17 @@ class IdleProcessor(Processor):
             if self.idle_since:
                 self.idle_since = None
                 publish('idle_for', None, v_sum, v_avg)
+
+        if v_sum == 0:
+            if not self.is_dead_instant:
+                self.is_dead_instant = True
+                publish('dead_instant', True)
+            self.dead_since = self.dead_since or time.time()
+            publish('dead_for', time.time() - self.dead_since)
+        else:
+            if self.is_dead_instant:
+                self.is_dead_instant = False
+                publish('dead_instant', False)
+            if self.dead_since:
+                self.dead_since = None
+                publish('dead_for', None)

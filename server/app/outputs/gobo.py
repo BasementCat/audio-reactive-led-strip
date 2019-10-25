@@ -63,6 +63,7 @@ class BasicGobo(Output):
             subscribe('beat', self.handle_beat)
             subscribe('onset', self.handle_onset)
             subscribe('idle_for', self.handle_idle_for)
+            subscribe('dead_for', self.handle_dead_for)
         # Also provide a way to get state from elsewhere
         subscribe('set_state__' + self.name, self.handle_set_state)
 
@@ -101,6 +102,31 @@ class BasicGobo(Output):
                 self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 5)
         elif idle_for is not None and v_sum:
             for k in ('pan', 'tilt'):
+                if k in self.effects:
+                    del self.effects[k]
+            if self.state['speed'] != 255:
+                self.state['speed'] = 255
+                self.send_dmx(True)
+
+    def handle_dead_for(self, dead_for, *args, **kwargs):
+        if dead_for is not None and dead_for >= 2:
+            # If we're dead for 2s, go into dead coasting
+            if self.state['speed'] != 15:
+                self.state['speed'] = 15
+                self.send_dmx(True)
+            if 'pan' not in self.effects:
+                self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 8)
+            if 'tilt' not in self.effects:
+                self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 8)
+            if 'color' not in self.effects:
+                v = self.map_color(1, 0)
+                self.effects['color'] = Effect(v, v, 8)
+            if 'gobo' not in self.effects:
+                v = self.map_gobo(1, 0)
+                self.effects['gobo'] = Effect(v, v, 8)
+        elif dead_for is None:
+            # Not dead anymore
+            for k in ('pan', 'tilt', 'color', 'gobo'):
                 if k in self.effects:
                     del self.effects[k]
             if self.state['speed'] != 255:
