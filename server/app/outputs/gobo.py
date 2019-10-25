@@ -56,14 +56,13 @@ class BasicGobo(Output):
         self.last_state = dict(self.state)
         self.fps = FPSCounter(f"Gobo {self.name}")
         self.effects = {}
-        # TODO: better way to do this?
-        self.last_total_intensity = 0
 
         if self.output_config.get('MAPPING'):
             # Need audio data
             subscribe('audio', self.handle_audio)
             subscribe('beat', self.handle_beat)
             subscribe('onset', self.handle_onset)
+            subscribe('idle_for', self.handle_idle_for)
         # Also provide a way to get state from elsewhere
         subscribe('set_state__' + self.name, self.handle_set_state)
 
@@ -88,13 +87,30 @@ class BasicGobo(Output):
             self.send_dmx()
             self.last_state = dict(self.state)
 
+    def handle_idle_for(self, idle_for, v_sum, *args, **kwargs):
+        idle_pan_tilt = time.time() - max(self.last_function['pan'], self.last_function['tilt']) > 2
+        if idle_for is not None and v_sum and idle_pan_tilt:
+            # Below threshold, but there's still audio
+            # Only called if mapping is set
+            if self.state['speed'] != 31:
+                self.state['speed'] = 31
+                self.send_dmx(True)
+            if 'pan' not in self.effects:
+                self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 5)
+            if 'tilt' not in self.effects:
+                self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 5)
+        elif idle_for is not None and v_sum:
+            for k in ('pan', 'tilt'):
+                if k in self.effects:
+                    del self.effects[k]
+            if self.state['speed'] != 255:
+                self.state['speed'] = 255
+                self.send_dmx(True)
+
     def update(self, event, data=None):
         with self.fps:
             config = self.output_config.get('MAPPING') or []
             now = time.time()
-            # TODO: better way to do this?
-            if event == 'audio':
-                self.last_total_intensity = sum(data)
 
             for directive in config:
                 arg_fn = getattr(self, 'map_' + directive['function'])
@@ -149,25 +165,6 @@ class BasicGobo(Output):
                 publish('set_state__' + linked.get('NAME'), linked_state)
 
     def run(self):
-        # HAX! seriously, do this better
-        if self.output_config.get('MAPPING'):
-            # TODO: better way to do this? (intensity)
-            if self.last_total_intensity > 0 and time.time() - max(self.last_function['pan'], self.last_function['tilt']) > 2:
-                if self.state['speed'] != 31:
-                    self.state['speed'] = 31
-                    self.send_dmx(True)
-                if 'pan' not in self.effects:
-                    self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 5)
-                if 'tilt' not in self.effects:
-                    self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 5)
-            else:
-                for k in ('pan', 'tilt'):
-                    if k in self.effects:
-                        del self.effects[k]
-                if self.state['speed'] != 255:
-                    self.state['speed'] = 255
-                    self.send_dmx(True)
-
         done = []
         for fn, e in self.effects.items():
             value = None
