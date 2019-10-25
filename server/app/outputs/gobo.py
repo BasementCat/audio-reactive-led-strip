@@ -64,6 +64,7 @@ class BasicGobo(Output):
             subscribe('onset', self.handle_onset)
             subscribe('idle_for', self.handle_idle_for)
             subscribe('dead_for', self.handle_dead_for)
+            subscribe('idle_instant', self.handle_idle_instant)
         # Also provide a way to get state from elsewhere
         subscribe('set_state__' + self.name, self.handle_set_state)
 
@@ -111,8 +112,9 @@ class BasicGobo(Output):
     def handle_dead_for(self, dead_for, *args, **kwargs):
         if dead_for is not None and dead_for >= 2:
             # If we're dead for 2s, go into dead coasting
-            if self.state['speed'] != 15:
-                self.state['speed'] = 15
+            if self.state['speed'] != 15 or self.state['dim'] != 75:
+                self.state['speed'] = 7
+                self.effects['dim'] = Effect(self.state['dim'], 50, 1, 50)
                 self.send_dmx(True)
             if 'pan' not in self.effects:
                 self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 8)
@@ -126,12 +128,22 @@ class BasicGobo(Output):
                 self.effects['gobo'] = Effect(v, v, 8)
         elif dead_for is None:
             # Not dead anymore
-            for k in ('pan', 'tilt', 'color', 'gobo'):
+            for k in ('pan', 'tilt', 'color', 'gobo', 'dim'):
                 if k in self.effects:
                     del self.effects[k]
-            if self.state['speed'] != 255:
+            if self.state['speed'] != 255 or self.state['dim'] != 255:
                 self.state['speed'] = 255
+                self.state['dim'] = 255
                 self.send_dmx(True)
+
+    def handle_idle_instant(self, is_idle, *args, **kwargs):
+        if is_idle:
+            if 'dim' not in self.effects and self.state['dim'] > 0:
+                self.effects['dim'] = Effect(self.state['dim'], 0, 0.5)
+        else:
+            if 'dim' in self.effects:
+                del self.effects['dim']
+            self.state['dim'] = 255
 
     def update(self, event, data=None):
         with self.fps:
@@ -260,12 +272,14 @@ class BasicGobo(Output):
                 self.effects['strobe'] = Effect(255, 255, 1, 0)
 
     def map_dim(self, value, threshold):
-        if value > threshold:
-            if 'dim' in self.effects:
-                del self.effects['dim']
-            return 255
-        if 'dim' not in self.effects and self.state['dim'] > 0:
-            self.effects['dim'] = Effect(255, 0, 0.5)
+        # Use effects/dead instead
+        return
+        # if value > threshold:
+        #     if 'dim' in self.effects:
+        #         del self.effects['dim']
+        #     return 255
+        # if 'dim' not in self.effects and self.state['dim'] > 0:
+        #     self.effects['dim'] = Effect(255, 0, 0.5)
 
     def prep_dmx(self):
         out = dict(self.state)

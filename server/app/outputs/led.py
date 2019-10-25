@@ -91,11 +91,11 @@ class IdleFlameEffect(object):
         if self.next_switch <= time.time():
             self.pixels = np.array([[self.COLORS[self.color][i] for _ in range(self.n_leds)] for i in range(3)])
             for i in range(self.n_leds):
-                flicker = random.randint(0, 55)
+                flicker = random.randint(0, 75)
                 self.pixels[0][i] = max(0, self.pixels[0][i] - flicker)
                 self.pixels[1][i] = max(0, self.pixels[1][i] - flicker)
                 self.pixels[2][i] = max(0, self.pixels[2][i] - flicker)
-            self.next_switch = time.time() + (random.randint(10, 113) / 1000.0)
+            self.next_switch = time.time() + (random.randint(10, 40) / 1000.0)
 
         return self.pixels
 
