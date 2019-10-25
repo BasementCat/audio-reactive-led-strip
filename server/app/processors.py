@@ -104,17 +104,18 @@ class IdleProcessor(Processor):
 
     def handle(self, audio):
         threshold = self.config.get('IDLE_THRESHOLD', 0.1)
-        v_avg = np.sum(audio) / len(audio)
+        v_sum = np.sum(audio)
+        v_avg = v_sum / len(audio)
         if v_avg < threshold:
             if not self.is_idle_instant:
                 self.is_idle_instant = True
-                publish('idle_instant', True)
+                publish('idle_instant', True, v_sum, v_avg)
             self.idle_since = self.idle_since or time.time()
-            publish('idle_for', time.time() - self.idle_since)
+            publish('idle_for', time.time() - self.idle_since, v_sum, v_avg)
         else:
             if self.is_idle_instant:
                 self.is_idle_instant = False
-                publish('idle_instant', False)
+                publish('idle_instant', False, v_sum, v_avg)
             if self.idle_since:
                 self.idle_since = None
-                publish('idle_for', None)
+                publish('idle_for', None, v_sum, v_avg)

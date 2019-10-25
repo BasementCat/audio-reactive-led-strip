@@ -199,7 +199,7 @@ class BaseLEDStrip(Output):
         output = np.array([r, g,b]) * 255
         return output
 
-    def handle_idle_instant(self, is_idle):
+    def handle_idle_instant(self, is_idle, *args, **kwargs):
         # Assume idle config is set
         if is_idle:
             if self.output_config['IDLE'].get('FADEOUT'):
@@ -213,7 +213,7 @@ class BaseLEDStrip(Output):
         else:
             self._clear_idle_anim()
 
-    def handle_idle_for(self, idle_for, condition=None):
+    def handle_idle_for(self, idle_for, *args, condition=None, **kwargs):
         # Only called if idle config is set, and fadeout is set, and if the condition changes
         if condition:
             self._apply_idle_anim()
