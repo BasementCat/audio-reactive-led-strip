@@ -86,7 +86,7 @@
             "PORT": 7777,
             "N_PIXELS": 120,
             "EFFECT": "scroll",
-            "IDLE": {"NAME": "Flame", "FADEOUT": 1, "FADEIN": 1, "ARGS": {"color": "random"}}
+            "IDLE": {"NAME": "AdvancedFlame", "FADEOUT": 1, "FADEIN": 1, "ARGS": {"color": "random"}}
         }
     ]
 }

@@ -100,6 +100,160 @@ class IdleFlameEffect(object):
         return self.pixels
 
 
+class IdleAdvancedFlameEffect(object):
+    class FlameElement(object):
+        def __init__(self, brightness=0, step=0, max_brightness=0, color=(0, 0, 0), state='RESET'):
+            self.brightness = brightness
+            self.step = step
+            self.max_brightness = max_brightness
+            self.color = color
+            self.state = state
+
+        def __repr__(self):
+            return f'FlameElement<{self.color}@{self.brightness}/{self.max_brightness}, +{self.step}, {self.state}>'
+
+        def __str__(self):
+            return repr(self)
+
+        def update(self, flicker_chance):
+            if self.state == 'RESET':
+                self._set_random_step()
+                self._set_random_max_brightness()
+                self.brightness = 0
+                self.state = 'INCREASING'
+                self.color = random.choice(IdleAdvancedFlameEffect.FLAMECOLORS)
+            elif self.state == 'INCREASING':
+                new_brightness = self.brightness + self.step
+                if new_brightness > self.max_brightness:
+                    self._update_flame_color(new_brightness)
+                    self.brightness = self.max_brightness
+                    self._set_random_step()
+                    self.state = 'DECREASING'
+                else:
+                    self._update_flame_color(new_brightness)
+                    self.brightness = new_brightness
+            elif self.state == 'DECREASING':
+                new_brightness = max(0, self.brightness - self.step)
+                # Chance to flicker/rekindle
+                if random.randint(0, 100) < flicker_chance:
+                    # Rekindle
+                    self.state = 'INCREASING'
+                    cur_brightness = self.brightness
+                    self._set_random_max_brightness()
+                    self.brightness = max(cur_brightness, self.brightness)
+                    self._set_random_step()
+                else:
+                    if new_brightness < 1:
+                        self.state = 'RESET'
+                        self.brightness = 0
+                        self._update_flame_color(0)
+                    else:
+                        self._update_flame_color(new_brightness)
+                        self.brightness = new_brightness
+
+        def get_colors(self, width):
+            r = list(range(1, width + 1))
+            if len(r) % 2 == 0:
+                # Even number
+                r0 = []
+                r1 = r[:int(len(r) / 2)]
+                r2 = r[int(len(r) / 2) + 1:]
+            else:
+                r0 = [r[int(len(r) / 2)]]
+                r1 = r[:int(len(r) / 2)]
+                r2 = r[int(len(r) / 2) + 1:]
+            r = r0
+            r1 = list(reversed(r1))
+            for i in range(len(r1)):
+                r.append(r1[i])
+                r.append(r2[i])
+            for i in r:
+                yield tuple(map(lambda v: min(255, (v / i) * 1.2), self.color))
+
+        def _set_random_step(self):
+            self.step = random.randint(1, 71)
+
+        def _set_random_max_brightness(self):
+            # # bell curve
+            # self.max_brightness = random.randint(0, 256 / 4) +  random.randint(0, 256 / 4) + random.randint(0, 256 / 4) + 256 / 4 + 1
+
+            # # flat distribution
+            # self.max_brightness = random.randint(0, 256 * 3 / 4) +  256 / 4
+
+            # brighter flat distribution
+            self.max_brightness = random.randint(0, 256 / 2) +  256 / 2
+
+        def _update_flame_color(self, new_brightness):
+            new_brightness = min(new_brightness, self.max_brightness)
+            # new_color = []
+            # for rgb_channel in range(3):
+            #     chan_val = self.color[rgb_channel]
+            #     chan_val *= new_brightness
+            #     chan_val /= 256
+            #     new_color.append(max(0, int(chan_val)))
+            new_inc = random.randint(6, max(6, int(new_brightness / 4)))
+            if self.state == 'DECREASING':
+                new_inc = -new_inc
+            new_color = tuple(map(lambda v: min(255, int(v + new_inc)), self.color))
+            self.color = tuple(new_color)
+
+    SCALERVAL = 256
+    REZ_RANGE = SCALERVAL
+    FLAMECOLORS = (
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, 0,  0),
+        (SCALERVAL, SCALERVAL*.4,  0),
+        (SCALERVAL, SCALERVAL*.4,  0),
+        (SCALERVAL, SCALERVAL*.4,  0),
+        (SCALERVAL, SCALERVAL*.4,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  0),
+        (SCALERVAL, SCALERVAL*.3,  SCALERVAL), # white
+        (0, SCALERVAL*.2,  SCALERVAL), # that one blue flame
+        (SCALERVAL,  SCALERVAL*.3,  SCALERVAL*.5),
+    )
+
+    # make it look like an effect
+    done = False
+    done_value = None
+
+    def __init__(self, n_leds, *, flame_width=3, flicker_chance=3, **kwargs):
+        self.n_leds = n_leds
+        self.flame_width = flame_width
+        self.flicker_chance = flicker_chance
+        self.n_flames = int(self.n_leds / self.flame_width)
+        self.flames = [self.FlameElement() for _ in range(self.n_flames)]
+        self.pixels = None
+        self.last_value = 0
+
+    @property
+    def value(self):
+        if time.time() - self.last_value >= 0.022:
+            self.last_value = time.time()
+            temp_pixels = [[] for _ in range(3)]
+            for i in range(self.n_flames):
+                self.flames[i].update(self.flicker_chance)
+                for c in self.flames[i].get_colors(self.flame_width):
+                    for x in range(3):
+                        temp_pixels[x].append(c[x])
+            self.pixels = np.array(temp_pixels)
+
+            # print(self.pixels)
+
+        return self.pixels
+
+
 class BaseLEDStrip(Output):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
