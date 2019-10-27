@@ -7,7 +7,6 @@ import time
 from dmxpy.DmxPy import DmxPy
 
 from app import Task
-from app.lib.pubsub import subscribe
 from app.lib.misc import FPSCounter
 
 
@@ -57,8 +56,6 @@ class DMX(Task):
 
         self.get_dmx()
 
-        subscribe('dmx', self.handle)
-
     def get_dmx(self):
         if not self.dmx and self.config.get('DMX_DEVICE') != 'sink':
             if self.dmx_attempt is None or time.time() - self.dmx_attempt > 1:
@@ -77,18 +74,18 @@ class DMX(Task):
 
         return self.dmx
 
-    def handle(self, data, force=False):
+    def run(self, data):
         dmx = self.get_dmx()
         if dmx:
-            for chan, val in data.items():
-                dmx.setChannel(chan, val)
-            if force:
-                dmx.render()
-
-    def run(self):
-        if time.time() - self.last_send >= self.delay:
-            self.last_send = time.time()
-            with self.fps:
-                dmx = self.get_dmx()
-                if dmx:
+            if data.get('dmx_force'):
+                with self.fps:
+                    for chan, val in data['dmx_force'].items():
+                        dmx.setChannel(chan, val)
+                    dmx.render()
+            if data.get('dmx'):
+                for chan, val in data['dmx'].items():
+                    dmx.setChannel(chan, val)
+            if time.time() - self.last_send >= self.delay:
+                self.last_send = time.time()
+                with self.fps:
                     dmx.render()

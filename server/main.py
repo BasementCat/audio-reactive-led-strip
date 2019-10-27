@@ -2,13 +2,12 @@
 # import signal
 
 from app.lib.config import parse_config
-# from app.lib.threads import start_threads, stop_threads, wait_threads, get_main_thread_callbacks, stop_event
 from app.inputs import DeviceInput
 from app.processors import SmoothingProcessor, BeatProcessor, IdleProcessor
-from app.outputs.dmx import DMX
-from app.outputs.gui import GUI
 from app.outputs.gobo import UKingGobo, UnnamedGobo
 from app.outputs.led import RemoteStrip
+from app.outputs.gui import GUI
+from app.outputs.dmx import DMX
 
 
 config = parse_config()
@@ -25,32 +24,20 @@ if config['USE_GUI']:
 # Add DMX last so it gets called last
 if config.get('DMX_DEVICE'):
     tasks.append(DMX('dmx', config))
-# main_thread_callbacks = list(get_main_thread_callbacks())
 
 try:
     try:
+        data = {}
         for t in tasks:
-            t.start()
+            t.start(data)
 
         while True:
+            data = {}
             for t in tasks:
-                t.run()
+                t.run(data)
     except KeyboardInterrupt:
         # Suppress
         pass
 finally:
     for t in tasks:
         t.stop()
-
-
-# start_threads()
-# while not stop_event.is_set():
-#     if main_thread_callbacks:
-#         # Assume the callbacks will take some time/delay/etc
-#         # TODO: maybe let callbacks define when they'll run next so we can still delay
-#         for cb in main_thread_callbacks:
-#             cb()
-#     else:
-#         time.sleep(0.25)
-
-# wait_threads()

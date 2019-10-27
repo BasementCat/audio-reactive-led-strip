@@ -9,7 +9,6 @@ from scipy.ndimage.filters import gaussian_filter1d
 from . import Output
 from app.effects import Effect
 from app.lib.dsp import ExpFilter
-from app.lib.pubsub import subscribe, publish
 from app.lib.misc import FPSCounter
 
 
@@ -281,12 +280,12 @@ class BaseLEDStrip(Output):
 
         self.fps = FPSCounter(f"{self.__class__.__name__} {self.name}")
 
-        subscribe('audio', self.handle_audio)
-        if self.output_config.get('IDLE'):
-            subscribe('idle_instant', self.handle_idle_instant)
-            if self.output_config['IDLE'].get('FADEOUT') and self.output_config['IDLE'].get('NAME'):
-                # If we're fading out on idle, don't apply the idle effect until afterwards
-                subscribe('idle_for', self.handle_idle_for, condition=lambda e, t, *a, **ka: t and t > self.output_config['IDLE']['FADEOUT'])
+        # subscribe('audio', self.handle_audio)
+        # if self.output_config.get('IDLE'):
+        #     subscribe('idle_instant', self.handle_idle_instant)
+        #     if self.output_config['IDLE'].get('FADEOUT') and self.output_config['IDLE'].get('NAME'):
+        #         # If we're fading out on idle, don't apply the idle effect until afterwards
+        #         subscribe('idle_for', self.handle_idle_for, condition=lambda e, t, *a, **ka: t and t > self.output_config['IDLE']['FADEOUT'])
 
     def visualize_scroll(self, y):
         """Effect that originates in the center and scrolls outwards"""
@@ -353,71 +352,72 @@ class BaseLEDStrip(Output):
         output = np.array([r, g,b]) * 255
         return output
 
-    def handle_idle_instant(self, is_idle, *args, **kwargs):
-        # Assume idle config is set
-        if is_idle:
-            if self.output_config['IDLE'].get('FADEOUT'):
-                # Fade out on idle
-                # Called only when the state changes so we can make some assumptions
-                # Idle anim will be set by idle_for
-                self.effects['brightness'] = Effect(self.brightness * 100, 0, self.output_config['IDLE']['FADEOUT'], 0)
-            else:
-                # No fadeout, so apply the animation as appropriate
-                self._apply_idle_anim()
-        else:
-            self._clear_idle_anim()
+    # def handle_idle_instant(self, is_idle, *args, **kwargs):
+    #     # Assume idle config is set
+    #     if is_idle:
+    #         if self.output_config['IDLE'].get('FADEOUT'):
+    #             # Fade out on idle
+    #             # Called only when the state changes so we can make some assumptions
+    #             # Idle anim will be set by idle_for
+    #             self.effects['brightness'] = Effect(self.brightness * 100, 0, self.output_config['IDLE']['FADEOUT'], 0)
+    #         else:
+    #             # No fadeout, so apply the animation as appropriate
+    #             self._apply_idle_anim()
+    #     else:
+    #         self._clear_idle_anim()
 
-    def handle_idle_for(self, idle_for, *args, condition=None, **kwargs):
-        # Only called if idle config is set, and fadeout is set, and if the condition changes
-        if condition:
-            self._apply_idle_anim()
-        # Don't clear here, it'll be cleared as soon as the instant idle state changes
+    # def handle_idle_for(self, idle_for, *args, condition=None, **kwargs):
+    #     # Only called if idle config is set, and fadeout is set, and if the condition changes
+    #     if condition:
+    #         self._apply_idle_anim()
+    #     # Don't clear here, it'll be cleared as soon as the instant idle state changes
 
-    def _apply_idle_anim(self):
-        if self.output_config['IDLE'].get('NAME'):
-            effect = globals().get('Idle' + self.output_config['IDLE']['NAME'] + 'Effect', None)
-            if effect:
-                # Add the brightness/idle
-                if self.output_config['IDLE'].get('FADEIN'):
-                    self.effects['brightness'] = Effect(0, 100, self.output_config['IDLE']['FADEIN'], 1)
-                self.effects['idle'] = effect(self.output_config['N_PIXELS'], **self.output_config['IDLE'].get('ARGS', {}))
+    # def _apply_idle_anim(self):
+    #     if self.output_config['IDLE'].get('NAME'):
+    #         effect = globals().get('Idle' + self.output_config['IDLE']['NAME'] + 'Effect', None)
+    #         if effect:
+    #             # Add the brightness/idle
+    #             if self.output_config['IDLE'].get('FADEIN'):
+    #                 self.effects['brightness'] = Effect(0, 100, self.output_config['IDLE']['FADEIN'], 1)
+    #             self.effects['idle'] = effect(self.output_config['N_PIXELS'], **self.output_config['IDLE'].get('ARGS', {}))
 
-    def _clear_idle_anim(self):
-        for k in ('brightness', 'idle'):
-            try:
-                del self.effects[k]
-            except KeyError:
-                pass
-            self.brightness = 1
+    # def _clear_idle_anim(self):
+    #     for k in ('brightness', 'idle'):
+    #         try:
+    #             del self.effects[k]
+    #         except KeyError:
+    #             pass
+    #         self.brightness = 1
 
-    def run(self):
-        done = []
-        for k, v in self.effects.items():
-            value = None
-            if v.done:
-                value = v.done_value
-                done.append(k)
-            else:
-                value = v.value
-
-            if k == 'brightness':
-                self.brightness = v.value / 100.0
-
-            if k == 'idle':
-                self.pixels = v.value
-
-        for k in done:
-            del self.effects[k]
-
-        self.send_data(self.pixels)
-
-    def handle_audio(self, data):
+    def run(self, data):
         with self.fps:
-            fn = getattr(self, 'visualize_' + self.output_config.get('EFFECT', 'scroll'), None)
-            if not fn:
-                logger.error("Bad effect: %s", self.output_config.get('EFFECT'))
-                return
-            self.pixels = self.visualize_scroll(data)
+            # TODO: idle
+            if data.get('audio') is not None:
+                fn = getattr(self, 'visualize_' + self.output_config.get('EFFECT', 'scroll'), None)
+                if not fn:
+                    logger.error("Bad effect: %s", self.output_config.get('EFFECT'))
+                else:
+                    self.pixels = fn(data['audio'])
+
+            done = []
+            for k, v in self.effects.items():
+                value = None
+                if v.done:
+                    value = v.done_value
+                    done.append(k)
+                else:
+                    value = v.value
+
+                if k == 'brightness':
+                    self.brightness = v.value / 100.0
+
+                if k == 'idle':
+                    self.pixels = v.value
+
+            for k in done:
+                del self.effects[k]
+
+            self.send_data(data, self.pixels)
 
     def send_data(self, data):
         raise NotImplementedError()
@@ -429,7 +429,7 @@ class RemoteStrip(BaseLEDStrip):
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
 
-    def send_data(self, data):
+    def send_data(self, data, pixels):
         """Sends UDP packets to ESP8266 to update LED strip values
 
         The ESP8266 will receive and decode the packets to determine what values
@@ -445,7 +445,7 @@ class RemoteStrip(BaseLEDStrip):
             b (0 to 255): Blue value of LED
         """
         # Truncate values and cast to integer
-        p = (np.clip(data, 0, 255) * self.brightness).astype(int)
+        p = (np.clip(pixels, 0, 255) * self.brightness).astype(int)
         # Optionally apply gamma correc tio
         # TODO: implement
         # p = _gamma[self.pixels] if config.SOFTWARE_GAMMA_CORRECTION else np.copy(self.pixels)
@@ -466,5 +466,5 @@ class RemoteStrip(BaseLEDStrip):
             m = bytes(m)
             self._sock.sendto(m, (self.output_config['HOST'], self.output_config['PORT']))
 
-        publish('led_data', {'name': self.name, 'pixels': p})
+        data.setdefault('led_pixels', {})[self.name] = self.pixels
         self._prev_pixels = np.copy(self.pixels)

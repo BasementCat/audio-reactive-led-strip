@@ -5,19 +5,16 @@ from pyqtgraph.Qt import QtGui, QtCore
 import numpy as np
 
 from app.lib.dsp import ExpFilter
-from app.lib.pubsub import subscribe
 from app import Task
 
 
 class GUI(Task):
-    def start(self):
-        super().start()
+    def start(self, data):
+        super().start(data)
         self.fft_plot_filter = ExpFilter(np.tile(1e-1, self.config['N_FFT_BINS']),
                          alpha_decay=0.5, alpha_rise=0.99)
         self.led_plots = {}
         self.make_gui()
-
-        subscribe('audio', self.handle)
 
     def make_gui(self):
         # Create GUI window
@@ -60,8 +57,6 @@ class GUI(Task):
             led_plot.addItem(r_curve)
             led_plot.addItem(g_curve)
             led_plot.addItem(b_curve)
-
-            subscribe('led_data', self.handle_led_data)
 
             self.led_plots[o['NAME']] = (led_plot, r_curve, g_curve, b_curve)
 
@@ -133,19 +128,20 @@ class GUI(Task):
         self.layout = layout
         self.mel_curve = mel_curve
 
-    def handle(self, mel):
-        # Plot filterbank output
-        x = np.linspace(self.config['MIN_FREQUENCY'], self.config['MAX_FREQUENCY'], len(mel))
-        self.mel_curve.setData(x=x, y=self.fft_plot_filter.update(mel))
+    def run(self, data):
+        if data.get('audio') is not None:
+            # Plot filterbank output
+            x = np.linspace(self.config['MIN_FREQUENCY'], self.config['MAX_FREQUENCY'], len(data['audio']))
+            self.mel_curve.setData(x=x, y=self.fft_plot_filter.update(data['audio']))
 
-    def handle_led_data(self, data):
-        # Plot the color channels
-        if data['name'] not in self.led_plots:
-            return
-        _, r_curve, g_curve, b_curve = self.led_plots[data['name']]
-        r_curve.setData(y=data['pixels'][0])
-        g_curve.setData(y=data['pixels'][1])
-        b_curve.setData(y=data['pixels'][2])
+        if data.get('led_pixels'):
+            for name, pixels in data['led_pixels'].items():
+                # Plot the color channels
+                if name not in self.led_plots:
+                    continue
+                _, r_curve, g_curve, b_curve = self.led_plots[name]
+                r_curve.setData(y=pixels[0])
+                g_curve.setData(y=pixels[1])
+                b_curve.setData(y=pixels[2])
 
-    def run(self):
         self.app.processEvents()

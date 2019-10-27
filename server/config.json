@@ -1,7 +1,8 @@
 {
     "DMX_DEVICE": "0403:6001",
+    "_DMX_DEVICE": "sink",
     "USE_GUI": false,
-    "INPUT_DEVICE_INDEX": 7,
+    "INPUT_DEVICE_INDEX": 6,
     "IDLE_THRESHOLD": 0.07,
     "OUTPUTS": [
         {
@@ -86,7 +87,7 @@
             "PORT": 7777,
             "N_PIXELS": 120,
             "EFFECT": "scroll",
-            "IDLE": {"NAME": "AdvancedFlame", "FADEOUT": 1, "FADEIN": 1, "ARGS": {"color": "random"}}
+            "_IDLE": {"NAME": "AdvancedFlame", "FADEOUT": 1, "FADEIN": 1, "ARGS": {"color": "random"}}
         }
     ]
 }

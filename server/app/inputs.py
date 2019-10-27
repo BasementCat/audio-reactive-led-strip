@@ -5,7 +5,6 @@ import numpy as np
 import pyaudio
 
 from app import Task
-from app.lib.pubsub import publish
 from app.lib.misc import FPSCounter
 
 
@@ -45,13 +44,13 @@ class DeviceInput(Input):
         self.overflows = 0
         self.prev_ovf_time = time.time()
 
-    def run(self):
+    def run(self, data):
         with self.fps:
             try:
                 y = np.fromstring(self.stream.read(self.frames_per_buffer, exception_on_overflow=False), dtype=np.int16)
                 y = y.astype(np.float32)
                 self.stream.read(self.stream.get_read_available(), exception_on_overflow=False)
-                publish('raw_audio', y)
+                data['raw_audio'] = y
             except IOError:
                 self.overflows += 1
                 if time.time() > self.prev_ovf_time + 1:

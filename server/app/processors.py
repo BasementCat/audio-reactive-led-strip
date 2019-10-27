@@ -6,7 +6,6 @@ import aubio
 
 from app import Task
 from app.lib.dsp import create_mel_bank, ExpFilter
-from app.lib.pubsub import subscribe, publish
 from app.lib.misc import FPSCounter
 
 
@@ -27,9 +26,10 @@ class SmoothingProcessor(Processor):
         self.mel_smoothing = ExpFilter(np.tile(1e-1, self.config['N_FFT_BINS']),
                          alpha_decay=0.5, alpha_rise=0.99)
 
-        subscribe('raw_audio', self.handle)
-
-    def handle(self, audio_samples):
+    def run(self, data):
+        audio_samples = data.get('raw_audio')
+        if audio_samples is None:
+            return
         with self.fps:
             # Normalize samples between 0 and 1
             y = audio_samples / 2.0**15
@@ -39,7 +39,7 @@ class SmoothingProcessor(Processor):
             y_data = np.concatenate(self.y_roll, axis=0).astype(np.float32)
 
             output = None
-            
+
             vol = np.max(np.abs(y_data))
             if vol < self.config['MIN_VOLUME_THRESHOLD']:
                 # print('No audio input. Volume below threshold. Volume:', vol)
@@ -65,7 +65,7 @@ class SmoothingProcessor(Processor):
                 output = mel
 
             if output is not None:
-                publish('audio', output)
+                data['audio'] = output
 
 
 class BeatProcessor(Processor):
@@ -77,14 +77,15 @@ class BeatProcessor(Processor):
         self.onset_detect = aubio.onset('energy', self.win_s, self.hop_s, self.config['MIC_RATE'])
         self.beat_detect = aubio.tempo('hfc', self.win_s, self.hop_s, self.config['MIC_RATE'])
 
-        subscribe('raw_audio', self.handle)
-
-    def handle(self, audio_samples):
+    def run(self, data):
+        audio_samples = data.get('raw_audio')
+        if audio_samples is None:
+            return
         with self.fps:
-            if self.onset_detect(audio_samples):
-                publish('onset')
-            if self.beat_detect(audio_samples):
-                publish('beat')
+            data.update({
+                'is_onset': True if self.onset_detect(audio_samples) else False,
+                'is_beat': True if self.beat_detect(audio_samples) else False,
+                })
 
             # if is_onset:
             #     # print("onset", self.onset_detect.get_last_s())
@@ -97,41 +98,27 @@ class IdleProcessor(Processor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fps = FPSCounter('Idle Processor')
-        self.is_idle_instant = False
         self.idle_since = None
-        self.is_dead_instant = False
         self.dead_since = None
 
-        subscribe('audio', self.handle)
-
-    def handle(self, audio):
+    def run(self, data):
+        audio = data.get('audio')
+        if audio is None:
+            return
         threshold = self.config.get('IDLE_THRESHOLD', 0.1)
         v_sum = np.sum(audio)
         v_avg = v_sum / len(audio)
+        data.update({'audio_v_sum': v_sum, 'audio_v_avg': v_avg})
         if v_avg < threshold:
-            if not self.is_idle_instant:
-                self.is_idle_instant = True
-                publish('idle_instant', True, v_sum, v_avg)
             self.idle_since = self.idle_since or time.time()
-            publish('idle_for', time.time() - self.idle_since, v_sum, v_avg)
+            data['idle_for'] = time.time() - self.idle_since
         else:
-            if self.is_idle_instant:
-                self.is_idle_instant = False
-                publish('idle_instant', False, v_sum, v_avg)
-            if self.idle_since:
-                self.idle_since = None
-                publish('idle_for', None, v_sum, v_avg)
+            self.idle_since = None
+            data['idle_for'] = None
 
         if v_sum == 0:
-            if not self.is_dead_instant:
-                self.is_dead_instant = True
-                publish('dead_instant', True)
             self.dead_since = self.dead_since or time.time()
-            publish('dead_for', time.time() - self.dead_since)
+            data['dead_for'] = time.time() - self.dead_since
         else:
-            if self.is_dead_instant:
-                self.is_dead_instant = False
-                publish('dead_instant', False)
-            if self.dead_since:
-                self.dead_since = None
-                publish('dead_for', None)
+            self.dead_since = None
+            data['dead_for'] = None

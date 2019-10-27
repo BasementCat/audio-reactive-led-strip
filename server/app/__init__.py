@@ -3,11 +3,11 @@ class Task(object):
         self.name = name
         self.config = config
 
-    def start(self):
+    def start(self, data):
         pass
 
     def stop(self):
         pass
 
-    def run(self):
+    def run(self, data):
         pass
