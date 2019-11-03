@@ -6,3 +6,4 @@ pyqtgraph
 # requires portaudio19-dev
 pyaudio
 aubio
+# TODO: launchpad lib

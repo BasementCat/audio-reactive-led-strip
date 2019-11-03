@@ -75,6 +75,9 @@ class BasicGobo(Output):
 
     def run(self, data):
         with self.fps:
+            new_state = data.get('gobo_state__' + self.name)
+            if new_state:
+                self.state = dict(new_state)
             if self.output_config.get('MAPPING'):
                 self._run_effects(data)
 
@@ -87,8 +90,6 @@ class BasicGobo(Output):
                 for fn in fns:
                     if fn(data):
                         break
-            else:
-                self.state = dict(data.get('gobo_state__' + self.name) or self.state)
 
             self.send_dmx(data)
 
@@ -281,25 +282,26 @@ class BasicGobo(Output):
 
     def prep_dmx(self):
         out = dict(self.state)
-        # changed = {}
-        # for k, v in out.items():
-        #     if v != self.last_state[k]:
-        #         changed[k] = v
-        # if changed:
-        #     print(self.name, changed)
+        changed = {}
+        for k, v in out.items():
+            if v != self.last_state[k]:
+                changed[k] = v
+        if changed:
+            print(self.name, changed)
         return out
 
     def send_dmx(self, data, force=False):
-        # Update linked state prior to prep
-        for linked in self.output_config.get('LINK') or []:
-            # Prevent an infinite loop
-            if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
-                # TODO: log
-                continue
-            linked_state = dict(self.state)
-            for fn in linked.get('INVERT') or []:
-                linked_state[fn] = 255 - linked_state[fn]
-            data['gobo_state__' + linked.get('NAME')] = linked_state
+        if self.config.get('ENABLE_LINKS'):
+            # Update linked state prior to prep
+            for linked in self.output_config.get('LINK') or []:
+                # Prevent an infinite loop
+                if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
+                    # TODO: log
+                    continue
+                linked_state = dict(self.state)
+                for fn in linked.get('INVERT') or []:
+                    linked_state[fn] = 255 - linked_state[fn]
+                data['gobo_state__' + linked.get('NAME')] = linked_state
 
         state = self.prep_dmx()
         channels = {self.CHANNEL_MAP[chan] + self.output_config.get('ADDRESS', 1) - 1: val for chan, val in state.items()}

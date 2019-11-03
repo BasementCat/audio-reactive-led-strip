@@ -1,6 +1,6 @@
 {
-    "DMX_DEVICE": "0403:6001",
-    "_DMX_DEVICE": "sink",
+    "_DMX_DEVICE": "0403:6001",
+    "DMX_DEVICE": "sink",
     "USE_GUI": false,
     "INPUT_DEVICE_INDEX": 6,
     "IDLE_THRESHOLD": 0.07,
@@ -8,6 +8,7 @@
         {
             "NAME": "back_1",
             "DEVICE": "UnnamedGobo",
+            "LABEL_COLOR": "WHITE",
             "ADDRESS": 1,
             "MAPPING": [
                 {"trigger": "onset", "function": "pan"},
@@ -26,15 +27,12 @@
             "LINK": [
                 {"NAME": "mid_1", "INVERT": ["pan"]},
                 {"NAME": "mid_4"}
-            ],
-            "RANGES": {
-                "pan": [[0, 32], [136, 200]],
-                "tilt": [[0, 127]]
-            }
+            ]
         },
         {
             "NAME": "back_2",
             "DEVICE": "UnnamedGobo",
+            "LABEL_COLOR": "RED",
             "ADDRESS": 12,
             "MAPPING": [
                 {"trigger": "onset", "function": "pan"},
@@ -53,30 +51,30 @@
             "LINK": [
                 {"NAME": "mid_2"},
                 {"NAME": "mid_3", "INVERT": ["pan"]}
-            ],
-            "RANGES": {
-                "pan": [[0, 28], [134, 198]],
-                "tilt": [[0, 127]]
-            }
+            ]
         },
         {
             "NAME": "mid_1",
             "DEVICE": "UKingGobo",
+            "LABEL_COLOR": "ORANGE",
             "ADDRESS": 23
         },
         {
             "NAME": "mid_2",
             "DEVICE": "UKingGobo",
+            "LABEL_COLOR": "FOREST",
             "ADDRESS": 34
         },
         {
             "NAME": "mid_3",
             "DEVICE": "UKingGobo",
+            "LABEL_COLOR": "CYAN1",
             "ADDRESS": 45
         },
         {
             "NAME": "mid_4",
             "DEVICE": "UKingGobo",
+            "LABEL_COLOR": "PURPLE",
             "ADDRESS": 56
         },
 
