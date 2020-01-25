@@ -1,9 +1,0 @@
-numpy
-scipy
-DmxPy
-PyQt5
-pyqtgraph
-# requires portaudio19-dev
-pyaudio
-aubio
-# TODO: launchpad lib
