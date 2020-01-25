@@ -428,6 +428,7 @@ class RemoteStrip(BaseLEDStrip):
         super().__init__(*args, **kwargs)
 
         self._sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        self._retry_at = None
 
     def send_data(self, data, pixels):
         """Sends UDP packets to ESP8266 to update LED strip values
@@ -456,15 +457,22 @@ class RemoteStrip(BaseLEDStrip):
         idx = [i for i in idx if not np.array_equal(p[:, i], self._prev_pixels[:, i])]
         n_packets = len(idx) // MAX_PIXELS_PER_PACKET + 1
         idx = np.array_split(idx, n_packets)
-        for packet_indices in idx:
-            m = []
-            for i in packet_indices:
-                m.append(i)  # Index of pixel to change
-                m.append(p[0][i])  # Pixel red value
-                m.append(p[1][i])  # Pixel green value
-                m.append(p[2][i])  # Pixel blue value
-            m = bytes(m)
-            self._sock.sendto(m, (self.output_config['HOST'], self.output_config['PORT']))
+        if self._retry_at is None or self._retry_at <= time.time():
+            self._retry_at = None
+            try:
+                for packet_indices in idx:
+                    m = []
+                    for i in packet_indices:
+                        m.append(i)  # Index of pixel to change
+                        m.append(p[0][i])  # Pixel red value
+                        m.append(p[1][i])  # Pixel green value
+                        m.append(p[2][i])  # Pixel blue value
+                    m = bytes(m)
+                    self._sock.sendto(m, (self.output_config['HOST'], self.output_config['PORT']))
+            except OSError as e:
+                if e.errno in (64, 65):
+                    logger.warning("Can't send data to led strip at %s:%d", self.output_config['HOST'], self.output_config['PORT'], exc_info=True)
+                    self._retry_at = time.time() + 5
 
         data.setdefault('led_pixels', {})[self.name] = self.pixels
         self._prev_pixels = np.copy(self.pixels)
