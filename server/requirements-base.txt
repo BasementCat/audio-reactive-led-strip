@@ -2,6 +2,6 @@
 numpy
 scipy
 DmxPy
-PyQt5
-pyqtgraph
+# PyQt5
+# pyqtgraph
 aubio
