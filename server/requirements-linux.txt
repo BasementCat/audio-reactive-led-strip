@@ -1,0 +1,3 @@
+-r requirements-base.txt
+# requires portaudio19-dev
+pyaudio

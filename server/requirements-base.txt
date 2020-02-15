@@ -1,0 +1,7 @@
+# TODO: launchpad lib
+numpy
+scipy
+DmxPy
+PyQt5
+pyqtgraph
+aubio
