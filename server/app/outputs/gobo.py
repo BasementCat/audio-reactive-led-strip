@@ -286,8 +286,8 @@ class BasicGobo(Output):
         for k, v in out.items():
             if v != self.last_state[k]:
                 changed[k] = v
-        if changed:
-            print(self.name, changed)
+        # if changed:
+        #     print(self.name, changed)
         return out
 
     def send_dmx(self, data, force=False):
