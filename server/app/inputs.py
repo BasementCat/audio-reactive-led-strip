@@ -27,9 +27,19 @@ class DeviceInput(Input):
             if info.get('maxInputChannels') > 0:
                 valid_input_devices[i] = info.get('name')
 
-        device = self.config.get('INPUT_DEVICE_INDEX')
-        if device not in valid_input_devices:
-            print(f"Invalid device index {device} - valid devices are:")
+        device_num = None
+        try:
+            device = int(self.config.get('INPUT_DEVICE'))
+            device_num = device if device in valid_input_devices else None
+        except (TypeError, ValueError):
+            device = self.config.get('INPUT_DEVICE')
+            for k, v in valid_input_devices.items():
+                if device in v:
+                    device_num = k
+                    break
+
+        if not device_num:
+            print(f"Invalid device {device} - valid devices are:")
             for k in sorted(valid_input_devices.keys()):
                 print(f"{k}: {valid_input_devices[k]}")
             sys.exit(1)
@@ -39,7 +49,7 @@ class DeviceInput(Input):
                         rate=self.config['MIC_RATE'],
                         input=True,
                         frames_per_buffer=self.frames_per_buffer,
-                        input_device_index=device
+                        input_device_index=device_num
                         )
         self.overflows = 0
         self.prev_ovf_time = time.time()

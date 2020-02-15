@@ -1,7 +1,12 @@
 import queue
 
-import pyqtgraph as pg
-from pyqtgraph.Qt import QtGui, QtCore
+try:
+    import pyqtgraph as pg
+    from pyqtgraph.Qt import QtGui, QtCore
+except ImportError:
+    import sys
+    sys.stderr.write("QT/pyqtgraph is not installed\n")
+
 import numpy as np
 
 from app.lib.dsp import ExpFilter

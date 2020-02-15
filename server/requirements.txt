@@ -1,8 +1,8 @@
 numpy
 scipy
 DmxPy
-PyQt5
-pyqtgraph
+# PyQt5 - not requiring just yet
+# pyqtgraph
 # requires portaudio19-dev
 pyaudio
 aubio
