@@ -4,7 +4,7 @@ import argparse
 
 from app.lib.config import parse_config
 from app.inputs import DeviceInput
-from app.processors import SmoothingProcessor, BeatProcessor, IdleProcessor
+from app.processors import SmoothingProcessor, BeatProcessor, PitchProcessor, IdleProcessor
 from app.outputs.gobo import UKingGobo, UnnamedGobo
 from app.outputs.led import RemoteStrip
 from app.outputs.gui import GUI
@@ -36,6 +36,7 @@ def run(args):
             DeviceInput('audioinput', config),
             SmoothingProcessor('smoothing', config),
             BeatProcessor('beat', config),
+            PitchProcessor('pitch', config),
             IdleProcessor('idle', config),
         ]
     for output in config['OUTPUTS']:

@@ -94,6 +94,37 @@ class BeatProcessor(Processor):
             # #     print("beat", self.beat_detect.get_last_s())
 
 
+class PitchProcessor(Processor):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fps = FPSCounter('Pitch Processor')
+        self.win_s = 1024
+        self.hop_s = self.frames_per_buffer = int(self.config['MIC_RATE'] / self.config['FPS'])
+        self.pitch_detect = aubio.pitch('yin', self.win_s, self.hop_s, self.config['MIC_RATE'])
+        self.pitch_detect.set_unit('midi')
+        # self.pitch_detect.set_tolerance(1)
+        self.buffer = []
+        self.buffer_len = 3
+
+    def run(self, data):
+        audio_samples = data.get('raw_audio')
+        if audio_samples is None:
+            return
+        with self.fps:
+            pitch = self.pitch_detect(audio_samples)[0]
+            confidence = self.pitch_detect.get_confidence()
+            # print('{:1.5f} {:s}'.format(confidence, '*' * int(pitch)))
+            if confidence > 0:
+                self.buffer.append(pitch)
+                self.buffer = self.buffer[-self.buffer_len:]
+
+            if len(self.buffer) == self.buffer_len:
+                avg = sum(self.buffer) / len(self.buffer)
+                data['pitch'] = avg
+            else:
+                data['pitch'] = None
+
+
 class IdleProcessor(Processor):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
