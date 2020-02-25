@@ -1,6 +1,8 @@
 import os
 import json
 
+import yaml
+
 
 BASE_CONFIG = {
     # Configured outputs, see below"""
@@ -87,7 +89,10 @@ def parse_config(filename=None):
     config = dict(BASE_CONFIG)
     if filename:
         with open(filename, 'r') as fp:
-            config.update(json.load(fp))
+            if filename.endswith('json'):
+                config.update(json.load(fp))
+            else:
+                config.update(yaml.load(fp))
     config['OUTPUTS'] = list(map(_parse_output, config['OUTPUTS']))
 
     # Figure out the max FPS
@@ -100,10 +105,9 @@ def parse_config(filename=None):
 
 def _find_config_file():
     # TODO: support configs in multiple locations
-    # filename = os.path.join(os.path.dirname(__file__), 'config.json')
-    filename = './config.json'
-    if os.path.exists(filename):
-        return filename
+    for f in ('./config.json', './config.yaml', './config.yml'):
+        if os.path.exists(f):
+            return f
 
 
 def _parse_output(output):

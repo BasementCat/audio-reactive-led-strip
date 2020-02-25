@@ -5,3 +5,4 @@ DmxPy
 # PyQt5
 # pyqtgraph
 aubio
+pyyaml
