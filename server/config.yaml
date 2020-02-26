@@ -1,0 +1,100 @@
+---
+# DMX_DEVICE: "0403:6001"
+# DMX_DEVICE: sink
+DMX_DEVICE: /dev/ttyUSB0
+# DMXNET_ESP_NODE: tacocat
+USE_GUI: false
+INPUT_DEVICE: pulse
+IDLE_THRESHOLD: 0.07
+NETWORK_MONITOR: true
+OUTPUTS:
+    -
+        NAME: test
+        DEVICE: TomshineMovingHead6in1
+        ADDRESS: 1
+        MAPPING:
+            - {trigger: "onset", function: "pan"}
+            - {trigger: "onset", function: "tilt"}
+            - {trigger: "frequency", bins: [[19, 23]], function: "strobe", threshold: 0.7}
+            - {trigger: "frequency", bins: [[0, 23]], function: "dim", threshold: 0.15}
+            # - {trigger: "frequency", bins: [[0, 23]], function: "color", threshold: 0.9}
+            # - {trigger: "pitch", function: "color"}
+            - {trigger: "frequency_all", function: "color"}
+
+            # - {trigger: "frequency", bins: [[0, 2]], function: "pan", threshold: 0.4}
+            # - {trigger: "frequency", bins: [[0, 2]], function: "tilt", threshold: 0.4}
+            # - {trigger: "frequency", bins: [[13, 20]], function: "gobo", threshold: 0.5}
+            # - {trigger: "frequency", bins: [[4, 12]], function: "color", threshold: 0.9}
+            # - {trigger: "frequency", bins: [[0, 23]], function: "pan", threshold: 0.6}
+            # - {trigger: "frequency", bins: [[0, 23]], function: "tilt", threshold: 0.6}
+
+        # "LINK": [
+        #     {"NAME": "mid_1", "INVERT": ["pan"]},
+        #     {"NAME": "mid_4"}
+        # ]
+
+    -
+        NAME: back_1
+        DEVICE: UnnamedGobo
+        ADDRESS: 1
+        MAPPING:
+            - {trigger: "onset", function: "pan"}
+            - {trigger: "onset", function: "tilt"}
+            - {trigger: "frequency", "bins": [[13, 20]], function: "gobo", threshold: 0.5}
+            - {trigger: "frequency", "bins": [[19, 23]], function: "strobe", threshold: 0.7}
+            - {trigger: "frequency", "bins": [[0, 23]], function: "color", threshold: 0.9}
+            - {trigger: "frequency", "bins": [[0, 23]], function: "dim", threshold: 0.15}
+
+            # - {trigger: "frequency", "_bins": [[0, 2]], function: "pan", threshold: 0.4},
+            # - {trigger: "frequency", "_bins": [[0, 2]], function: "tilt", threshold: 0.4},
+            # - {trigger: "frequency", "_bins": [[4, 12]], function: "color", threshold: 0.9},
+            # - {trigger: "frequency", "_bins": [[0, 23]], function: "pan", threshold: 0.6},
+            # - {trigger: "frequency", "_bins": [[0, 23]], function: "tilt", threshold: 0.6}
+        LINK:
+            - {NAME: "mid_1", INVERT: ["pan"]}
+            - {NAME: "mid_4"}
+
+    -
+        NAME: back_2
+        DEVICE: UnnamedGobo
+        ADDRESS: 12
+        MAPPING:
+            - {trigger: "onset", function: "pan"}
+            - {trigger: "onset", function: "tilt"}
+            - {trigger: "frequency", bins: [[13, 20]], function: "gobo", threshold: 0.5}
+            - {trigger: "frequency", bins: [[19, 23]], function: "strobe", threshold: 0.7}
+            - {trigger: "frequency", bins: [[0, 23]], function: "color", threshold: 0.9}
+            - {trigger: "frequency", bins: [[0, 23]], function: "dim", threshold: 0.15}
+
+            # - {trigger: "frequency", "_bins": [[0, 2]], function: "pan", threshold: 0.4},
+            # - {trigger: "frequency", "_bins": [[0, 2]], function: "tilt", threshold: 0.4},
+            # - {trigger: "frequency", "_bins": [[4, 12]], function: "color", threshold: 0.9},
+            # - {trigger: "frequency", "_bins": [[0, 23]], function: "pan", threshold: 0.6},
+            # - {trigger: "frequency", "_bins": [[0, 23]], function: "tilt", threshold: 0.6}
+        LINK:
+            - {NAME: "mid_2"}
+            - {NAME: "mid_3", INVERT: ["pan"]}
+    -
+        NAME: mid_1
+        DEVICE: UKingGobo
+        ADDRESS: 23
+    -
+        NAME: mid_2
+        DEVICE: UKingGobo
+        ADDRESS: 34
+    -
+        NAME: mid_3
+        DEVICE: UKingGobo
+        ADDRESS: 45
+    -
+        NAME: mid_4
+        DEVICE: UKingGobo
+        ADDRESS: 56
+    -
+        NAME: ledstrip
+        DEVICE: RemoteStrip
+        HOST: "10.0.1.10"
+        PORT: 7777
+        N_PIXELS: 120
+        EFFECT: scroll
+        # IDLE": {"NAME": "AdvancedFlame", "FADEOUT": 1, "FADEIN": 1, "ARGS": {"color": "random"}}
