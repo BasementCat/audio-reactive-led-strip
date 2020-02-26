@@ -5,7 +5,8 @@ import argparse
 from app.lib.config import parse_config
 from app.inputs import DeviceInput
 from app.processors import SmoothingProcessor, BeatProcessor, PitchProcessor, IdleProcessor
-from app.outputs.gobo import UKingGobo, UnnamedGobo
+from app.outputs.dmxfixtures.gobo import UKingGobo, UnnamedGobo
+from app.outputs.dmxfixtures.movinghead import TomshineMovingHead6in1
 from app.outputs.led import RemoteStrip
 from app.outputs.gui import GUI
 from app.outputs.dmx import DMX

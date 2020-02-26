@@ -20,3 +20,8 @@ class FPSCounter(object):
             print(f"{self.name} FPS: {fps}, {avg_duration * 1000} ms per")
             self.iterations = []
             self.last_print = now
+
+
+def map_to_range(num, r_min, r_max=1):
+    # num is assumed to be 0-1, r_min should be <1
+    return ((r_max - r_min) * num) + r_min

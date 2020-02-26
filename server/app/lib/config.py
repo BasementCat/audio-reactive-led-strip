@@ -163,3 +163,8 @@ def _parse_output__UKingGobo(output):
 def _parse_output__UnnamedGobo(output):
     # required_keys = ('NAME')
     return output
+
+
+def _parse_output__TomshineMovingHead6in1(output):
+    # required_keys = ('NAME')
+    return output
