@@ -10,6 +10,7 @@ from app.outputs.dmxfixtures.movinghead import TomshineMovingHead6in1
 from app.outputs.led import RemoteStrip
 from app.outputs.gui import GUI
 from app.outputs.dmx import DMX
+from app.outputs.netmonitor import NetworkMonitor
 
 
 def parse_args():
@@ -49,6 +50,10 @@ def run(args):
     # Add DMX last so it gets called last
     if config.get('DMX_DEVICE'):
         tasks.append(DMX('dmx', config))
+
+    # Must be last
+    if config.get('NETWORK_MONITOR'):
+        tasks.append(NetworkMonitor('netmon', config))
 
     try:
         try:
