@@ -3,7 +3,7 @@
 import argparse
 
 from app.lib.config import parse_config
-from app.inputs import DeviceInput
+from app.inputs import DeviceInput, NetworkInput
 from app.processors import SmoothingProcessor, BeatProcessor, PitchProcessor, IdleProcessor
 from app.outputs.dmxfixtures.gobo import UKingGobo, UnnamedGobo
 from app.outputs.dmxfixtures.movinghead import TomshineMovingHead6in1
@@ -23,6 +23,7 @@ def parse_args():
 
 def run(args):
     config = parse_config(filename=args.config)
+    lights = []
     config['ENABLE_LINKS'] = True
     if args.manual:
         config['ENABLE_LINKS'] = False
@@ -42,7 +43,9 @@ def run(args):
             IdleProcessor('idle', config),
         ]
     for output in config['OUTPUTS']:
-        tasks.append(globals()[output['DEVICE']](config, output))
+        light = globals()[output['DEVICE']](config, output)
+        lights.append(light)
+        tasks.append(light)
         if args.manual:
             tasks[0].add_output(tasks[-1])
     if config['USE_GUI'] and not args.manual:
@@ -50,6 +53,10 @@ def run(args):
     # Add DMX last so it gets called last
     if config.get('DMX_DEVICE'):
         tasks.append(DMX('dmx', config))
+
+    # Must be first
+    if config.get('NETWORK_INPUT'):
+        tasks.insert(0, NetworkInput('netinput', config, lights=lights))
 
     # Must be last
     if config.get('NETWORK_MONITOR'):

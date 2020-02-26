@@ -63,18 +63,19 @@ class BasicDMX(Output):
 
     def run(self, data):
         with self.fps:
-            new_state = data.get('push_state__' + self.name)
-            if new_state:
-                self.state = dict(new_state)
-            if self.output_config.get('MAPPING'):
-                self._run_effects(data)
+            if not self.config.get('SUSPENDED'):
+                new_state = data.get('push_state__' + self.name)
+                if new_state:
+                    self.state = dict(new_state)
+                if self.output_config.get('MAPPING'):
+                    self._run_effects(data)
 
-                fns = self.get_state_chain()
-                for fn in fns:
-                    if fn(data):
-                        break
+                    fns = self.get_state_chain()
+                    for fn in fns:
+                        if fn(data):
+                            break
 
-                self._run_mapping(data)
+                    self._run_mapping(data)
 
             self.send_dmx(data)
 
