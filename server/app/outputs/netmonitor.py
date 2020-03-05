@@ -59,7 +59,11 @@ class NetworkMonitor(Task):
                 self.clients.append(newsock)
             else:
                 # Read and discard data
-                data = s.recv(8192)
+                data = b''
+                try:
+                    data = s.recv(8192)
+                except ConnectionResetError:
+                    pass
                 if len(data) == 0:
                     # No data, client is dead
                     s.close()
