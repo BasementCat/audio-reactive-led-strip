@@ -130,10 +130,20 @@ class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
 
     def map_color(self, trigger, value, threshold):
         if trigger == 'frequency_all':
-            bins_per = int(len(value) / 3)
+            if not isinstance(value[0], list):
+                # Raw bins
+                bins_per = int(len(value) / 3)
+                temp_value = []
+                for offset in (0, bins_per, bins_per * 2):
+                    bucket = []
+                    for idx in range(offset, offset + bins_per):
+                        bucket.append(value[idx])
+                value = temp_value
+
             out = []
-            for color, offset in (('red', 0), ('green', bins_per), ('blue', bins_per * 2)):
-                newvalue = max(value[offset:offset + bins_per])
+            colors = ('red', 'green', 'blue')
+            for color, bins in zip(colors, value[:3]):
+                newvalue = max(bins)
                 if newvalue > threshold:
                     out.append(int(newvalue * 255))
                 else:

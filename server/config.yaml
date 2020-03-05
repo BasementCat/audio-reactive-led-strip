@@ -77,7 +77,7 @@ OUTPUTS:
             - {trigger: "frequency", bins: [[0, 23]], function: "dim", threshold: 0.15}
             # - {trigger: "frequency", bins: [[0, 23]], function: "color", threshold: 0.9}
             # - {trigger: "pitch", function: "color"}
-            - {trigger: "frequency_all", function: "color"}
+            - {trigger: "frequency_all", bins: [[0, 3], [4, 12], [13, 23]], function: "color"}
 
             # - {trigger: "frequency", bins: [[0, 2]], function: "pan", threshold: 0.4}
             # - {trigger: "frequency", bins: [[0, 2]], function: "tilt", threshold: 0.4}

@@ -134,7 +134,18 @@ class BasicDMX(Output):
                 threshold = directive['threshold']
 
             elif data.get('audio') is not None and directive['trigger'] == 'frequency_all':
-                value = data['audio']
+                if directive.get('bins'):
+                    value = []
+                    for bin_info in directive['bins']:
+                        bucket = []
+                        if isinstance(bin_info, list):
+                            for idx in range(bin_info[0], bin_info[1] + 1):
+                                bucket.append(data['audio'][idx])
+                        else:
+                            bucket.append([data['audio'][bin_info]])
+                        value.append(bucket)
+                else:
+                    value = data['audio']
                 threshold = directive.get('threshold', 0)
 
             elif data.get('is_onset') and directive['trigger'] == 'onset':
