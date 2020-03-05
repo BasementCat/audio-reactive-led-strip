@@ -85,10 +85,19 @@ class UKingGobo(GoboMixin, MovingHeadMixin, BasicDMX):
         'color': 0,
         'gobo': 0,
         'strobe': 0,
-        'dim': 0,
+        'dim': 255,
         'speed': 255,
         'mode': 0,
         'dim_mode': 0
+    }
+
+    RATES = {
+        'pan': 0.75,
+        'tilt': 0.75,
+        'gobo': 0.25,
+        'color': 0.25,
+        'strobe': 10,
+        'dim': 0.125,
     }
 
 
@@ -115,10 +124,19 @@ class UnnamedGobo(GoboMixin, MovingHeadMixin, BasicDMX):
         'color': 0,
         'gobo': 0,
         'strobe': 0,
-        'dim': 0,
+        'dim': 255,
         'speed': 255,
         'mode': 0,
         'dim_mode': 0,
+    }
+
+    RATES = {
+        'pan': 0.75,
+        'tilt': 0.75,
+        'gobo': 0.25,
+        'color': 0.25,
+        'strobe': 10,
+        'dim': 0.125,
     }
 
 
