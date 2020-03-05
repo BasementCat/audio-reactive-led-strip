@@ -13,6 +13,7 @@ from app.lib.misc import FPSCounter
 
 
 logger = logging.getLogger(__name__)
+hexint = lambda v: int(v, 16)
 
 
 def find_device_file__linux(vendor, product):
@@ -77,7 +78,6 @@ def find_device_file(name):
     if ':' not in name:
         raise ValueError(f"Not a valid device ID: {name}")
 
-    hexint = lambda v: int(v, 16)
     vendor, product = map(hexint, name.split(':'))
 
     for fn in (find_device_file__linux, find_device_file__macos):
