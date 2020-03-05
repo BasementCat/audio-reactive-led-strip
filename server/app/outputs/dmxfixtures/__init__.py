@@ -155,7 +155,7 @@ class BasicDMX(Output):
             arg = arg_fn(directive['trigger'], value, threshold)
 
             if arg is not None:
-                if self.last_function[directive['function']] + self.RATES[directive['function']] < now:
+                if self.last_function[directive['function']] + self.RATES.get(directive['function'], 0) < now:
                     self.last_function[directive['function']] = now
                     if directive['function'] in self.MULTI_PROP_MAP:
                         new_state.update(dict(zip(self.MULTI_PROP_MAP[directive['function']], arg)))

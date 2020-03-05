@@ -1,6 +1,7 @@
 import random
 
 from app.effects import Effect
+from app.lib.misc import map_to_range
 
 from . import BasicDMX
 from .movinghead import MovingHeadMixin

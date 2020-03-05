@@ -43,8 +43,8 @@ class MovingHeadMixin:
             if self.state['speed'] != speed:
                 self.state['speed'] = speed
                 self.send_dmx(data, True)
-            self.add_effect('pan', Effect(self.state['pan'], random.randint(0, 255), 5))
-            self.add_effect('tilt', Effect(self.state['tilt'], random.randint(0, 255), 5))
+            self.add_effect('pan', Effect(random.randint(0, 255), None, 5))
+            self.add_effect('tilt', Effect(random.randint(0, 255), None, 5))
 
             # Don't return true, so that mapping is still run
             # This allows pan/tilt to be updated
