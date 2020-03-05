@@ -1,7 +1,7 @@
 ---
-# DMX_DEVICE: "0403:6001"
+DMX_DEVICE: "0403:6001"
 # DMX_DEVICE: sink
-DMX_DEVICE: /dev/ttyUSB0
+# DMX_DEVICE: /dev/ttyUSB0
 # DMXNET_ESP_NODE: tacocat
 USE_GUI: false
 INPUT_DEVICE: pulse
@@ -9,31 +9,6 @@ IDLE_THRESHOLD: 0.07
 NETWORK_MONITOR: true
 NETWORK_INPUT: true
 OUTPUTS:
-    -
-        NAME: test
-        DEVICE: TomshineMovingHead6in1
-        ADDRESS: 1
-        MAPPING:
-            - {trigger: "onset", function: "pan"}
-            - {trigger: "onset", function: "tilt"}
-            - {trigger: "frequency", bins: [[19, 23]], function: "strobe", threshold: 0.7}
-            - {trigger: "frequency", bins: [[0, 23]], function: "dim", threshold: 0.15}
-            # - {trigger: "frequency", bins: [[0, 23]], function: "color", threshold: 0.9}
-            # - {trigger: "pitch", function: "color"}
-            - {trigger: "frequency_all", function: "color"}
-
-            # - {trigger: "frequency", bins: [[0, 2]], function: "pan", threshold: 0.4}
-            # - {trigger: "frequency", bins: [[0, 2]], function: "tilt", threshold: 0.4}
-            # - {trigger: "frequency", bins: [[13, 20]], function: "gobo", threshold: 0.5}
-            # - {trigger: "frequency", bins: [[4, 12]], function: "color", threshold: 0.9}
-            # - {trigger: "frequency", bins: [[0, 23]], function: "pan", threshold: 0.6}
-            # - {trigger: "frequency", bins: [[0, 23]], function: "tilt", threshold: 0.6}
-
-        # "LINK": [
-        #     {"NAME": "mid_1", "INVERT": ["pan"]},
-        #     {"NAME": "mid_4"}
-        # ]
-
     -
         NAME: back_1
         DEVICE: UnnamedGobo
@@ -91,6 +66,32 @@ OUTPUTS:
         NAME: mid_4
         DEVICE: UKingGobo
         ADDRESS: 56
+    -
+        NAME: front_1
+        DEVICE: TomshineMovingHead6in1
+        ADDRESS: 67
+        MAPPING:
+            - {trigger: "onset", function: "pan"}
+            - {trigger: "onset", function: "tilt"}
+            - {trigger: "frequency", bins: [[19, 23]], function: "strobe", threshold: 0.7}
+            - {trigger: "frequency", bins: [[0, 23]], function: "dim", threshold: 0.15}
+            # - {trigger: "frequency", bins: [[0, 23]], function: "color", threshold: 0.9}
+            # - {trigger: "pitch", function: "color"}
+            - {trigger: "frequency_all", function: "color"}
+
+            # - {trigger: "frequency", bins: [[0, 2]], function: "pan", threshold: 0.4}
+            # - {trigger: "frequency", bins: [[0, 2]], function: "tilt", threshold: 0.4}
+            # - {trigger: "frequency", bins: [[13, 20]], function: "gobo", threshold: 0.5}
+            # - {trigger: "frequency", bins: [[4, 12]], function: "color", threshold: 0.9}
+            # - {trigger: "frequency", bins: [[0, 23]], function: "pan", threshold: 0.6}
+            # - {trigger: "frequency", bins: [[0, 23]], function: "tilt", threshold: 0.6}
+
+        LINK:
+            - {NAME: "front_2", INVERT: ["pan"]}
+    -
+        NAME: front_2
+        DEVICE: TomshineMovingHead6in1
+        ADDRESS: 85
     -
         NAME: ledstrip
         DEVICE: RemoteStrip
