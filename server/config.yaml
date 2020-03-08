@@ -4,10 +4,8 @@ DMX_DEVICE: "0403:6001"
 # DMX_DEVICE: /dev/ttyUSB0
 # DMXNET_ESP_NODE: tacocat
 USE_GUI: false
-INPUT_DEVICE: pulse
+INPUT_DEVICE: default
 IDLE_THRESHOLD: 0.07
-NETWORK_MONITOR: true
-NETWORK_INPUT: true
 OUTPUTS:
     -
         NAME: back_1

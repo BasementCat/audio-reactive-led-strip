@@ -4,7 +4,7 @@ import time
 from app.outputs import Output
 from app.effects import Effect
 from app.lib.misc import FPSCounter
-from app.outputs.netmonitor import sendmonitor
+from app.lib.network import send_monitor
 
 
 class BasicDMX(Output):
@@ -81,7 +81,7 @@ class BasicDMX(Output):
 
     def add_effect(self, k, effect, overwrite=False):
         if overwrite or k not in self.effects:
-            sendmonitor(self, 'EFFECT', 'NEW', prop=k, **effect.args)
+            send_monitor(self, 'EFFECT', opstate='NEW', opname=k, **effect.args)
             self.effects[k] = effect
 
     def _run_effects(self, data):
@@ -100,7 +100,7 @@ class BasicDMX(Output):
                 self.state[fn] = value
 
         for k in done:
-            sendmonitor(self, 'EFFECT', 'DONE', prop=k, **self.effects[k].args)
+            send_monitor(self, 'EFFECT', opstate='DONE', opname=k, **self.effects[k].args)
             del self.effects[k]
 
     def _run_mapping(self, data):
@@ -196,7 +196,7 @@ class BasicDMX(Output):
             if v != self.last_state[k]:
                 changed[k] = v
         if changed:
-            sendmonitor(self, 'STATE', **changed)
+            send_monitor(self, 'STATE', **changed)
 
         for k in self.INVERT:
             out[k] = 255 - out[k]

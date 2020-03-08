@@ -3,7 +3,8 @@
 import argparse
 
 from app.lib.config import parse_config
-from app.inputs import DeviceInput, NetworkInput
+from app.lib.network import Network, NetworkTask
+from app.inputs import DeviceInput
 from app.processors import SmoothingProcessor, BeatProcessor, PitchProcessor, IdleProcessor
 from app.outputs.dmxfixtures.gobo import UKingGobo, UnnamedGobo
 from app.outputs.dmxfixtures.movinghead import TomshineMovingHead6in1
@@ -54,17 +55,13 @@ def run(args):
     if config.get('DMX_DEVICE'):
         tasks.append(DMX('dmx', config))
 
-    # Must be first
-    if config.get('NETWORK_INPUT'):
-        tasks.insert(0, NetworkInput('netinput', config, lights=lights))
-
-    # Must be last
-    if config.get('NETWORK_MONITOR'):
-        tasks.append(NetworkMonitor('netmon', config))
+    network = Network(config, lights)
+    tasks.insert(0, NetworkTask('netinput', config, network, 'input'))
+    tasks.append(NetworkTask('netoutput', config, network, 'output'))
 
     try:
         try:
-            data = {}
+            data = {'network': network}
             for t in tasks:
                 t.start(data)
 
