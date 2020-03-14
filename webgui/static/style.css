@@ -1,0 +1,35 @@
+.light_body {
+    float: left;
+    margin: 1em;
+    width: 200px;
+    height: 200px;
+    background-color: #ddd;
+    border-radius: 6px;
+}
+
+.light_head {
+    width: 90%;
+    height: 90%;
+    position: relative;
+    border-radius: 50%;
+    float: none;
+    margin: auto;
+    border: 1px solid black;
+    background-color: white;
+}
+
+.light_bulb {
+    width: 30%;
+    height: 30%;
+    position: absolute;
+    top: 0;
+    left: 50%;
+    margin-left: -15%;
+    border-radius: 50%;
+    border: 1px solid black;
+    background-color: black;
+}
+
+.info_list {
+    display: none;
+}
