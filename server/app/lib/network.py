@@ -53,8 +53,7 @@ class Network(object):
             self.server_sock.close()
             self.server_sock = None
 
-    @classmethod
-    def send_command(cls, sock, command, *args, **kwargs):
+    def send_command(self, sock, command, *args, **kwargs):
         data = {
             'command': command,
             'args': args,
@@ -62,12 +61,16 @@ class Network(object):
         }
         out = json.dumps(data).encode('utf-8') + b'\n'
         sent = 0
-        while sent < len(out):
-            sent += sock.send(out[sent:])
+        try:
+            while sent < len(out):
+                sent += sock.send(out[sent:])
+        except socket.error:
+            logger.error("Got error from socket %s", sock, exc_info=True)
+            sock.close()
+            self.clients.remove(sock)
 
-    @classmethod
-    def send_error(cls, sock, errcode, errarg, errstr):
-        cls.send_command(sock, 'ERROR', code=errcode, argument=errarg, error=errstr)
+    def send_error(self, sock, errcode, errarg, errstr):
+        self.send_command(sock, 'ERROR', code=errcode, argument=errarg, error=errstr)
 
     def run_input(self, data):
         r, _, _ = select.select([self.server_sock] + self.clients, [], [], 0)
