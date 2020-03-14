@@ -95,6 +95,21 @@ class MovingHeadOutput extends Output {
 
         this.is_rgb = array_has(light.functions, ['red', 'green', 'blue']);
 
+        this.color_set = {};
+        if (array_has(light.functions, ['color']) && light.enums.color) {
+            Object.entries(light.enums.color).forEach(v => {
+                var color;
+                if (/_/.test(v[0])) {
+                    color = v[0].split('_');
+                } else {
+                    color = [v[0], v[0]];
+                }
+                for (var i = v[1][0]; i <= v[1][1]; i++) {
+                    this.color_set[i] = color;
+                }
+            });
+        }
+
         this.dest = dest;
 
         this.effects = {};
@@ -128,7 +143,6 @@ class MovingHeadOutput extends Output {
     }
 
     render() {
-        // TODO: fixed colors
         // TODO: gobo
         // TODO: white, uv, amber
         // TODO: speed
@@ -138,6 +152,9 @@ class MovingHeadOutput extends Output {
         if (this.is_rgb) {
             var c = [this.light.state.red, this.light.state.green, this.light.state.blue].join(', ');
             this.light_bulb.style.backgroundColor = 'rgb(' + c + ')';
+        } else if (this.color_set) {
+            var color = this.color_set[this.light.state.color];
+            this.light_bulb.style.background = 'linear-gradient(90deg, ' + color[0] + ' 0%, ' + color[0] + ' 50%, ' + color[1] + ' 50%, ' + color[1] + ' 100%)';
         }
         // TODO: do this better
         this.light_bulb.style.opacity = this.light.state.dim / 255;
@@ -154,9 +171,7 @@ class MovingHeadOutput extends Output {
     }
 
     destroy() {
-        try {
-            this.dest && this.dest.removeChild(this.light_body);
-        } catch (e) {}
+        this.dest && this.dest.removeChild(this.light_container);
     }
 }
 
@@ -167,6 +182,7 @@ class Light {
         this.functions = light_data.functions;
         this._state = light_data.state;
         this.speeds = light_data.speeds;
+        this.enums = light_data.enums;
         this.outputs = [];
     }
 

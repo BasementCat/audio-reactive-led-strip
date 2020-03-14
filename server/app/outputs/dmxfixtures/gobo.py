@@ -97,6 +97,42 @@ class UKingGobo(GoboMixin, MovingHeadMixin, BasicDMX):
         'dim': 0.125,
     }
 
+    ENUMS = {
+        'color': {
+            'white': (0, 9),
+            'red': (10, 19),
+            'green': (20, 29),
+            'blue': (30, 39),
+            'yellow': (40, 49),
+            'orange': (50, 59),
+            'cyan': (60, 69),
+            'pink': (70, 79),
+            'pink_cyan': (80, 89),
+            'cyan_orange': (90, 99),
+            'orange_yellow': (100, 109),
+            'yellow_blue': (110, 119),
+            'blue_green': (120, 127),
+        },
+        'gobo': {
+            'none': (0, 7),
+            'broken_circle': (8, 15),
+            'burst': (16, 23),
+            '3_spot_circle': (24, 31),
+            'square_spots': (32, 39),
+            'droplets': (40, 47),
+            'swirl': (48, 55),
+            'stripes': (56, 63),
+            'dither_none': (64, 71),
+            'dither_broken_circle': (72, 79),
+            'dither_burst': (80, 87),
+            'dither_3_spot_circle': (88, 95),
+            'dither_square_spots': (96, 103),
+            'dither_droplets': (104, 111),
+            'dither_swirl': (112, 119),
+            'dither_stripes': (120, 127),
+        }
+    }
+
 
 class UnnamedGobo(GoboMixin, MovingHeadMixin, BasicDMX):
     FUNCTIONS = {
@@ -136,264 +172,39 @@ class UnnamedGobo(GoboMixin, MovingHeadMixin, BasicDMX):
         'dim': 0.125,
     }
 
-
-# class BasicGobo(Output):
-#     FUNCTIONS = {
-#         'pan': 1,
-#         'tilt': 3,
-#         'color': 5,
-#         'gobo': 6,
-#         'strobe': 7,
-#         'dim': 8,
-#     }
-
-#     RATES = {
-#         'pan': 0.75,
-#         'tilt': 0.75,
-#         'color': 0.5,
-#         'gobo': 0.5,
-#         'strobe': 10,
-#         'dim': 0.125,
-#     }
-
-#     def __init__(self, *args, **kwargs):
-#         super().__init__(*args, **kwargs)
-
-#         self.last_function = {
-#             'pan': 0,
-#             'tilt': 0,
-#             'color': 0,
-#             'gobo': 0,
-#             'strobe': 0,
-#             'dim': 0,
-#         }
-#         self.state = {
-#             'pan': 0,
-#             'tilt': 0,
-#             'color': 0,
-#             'gobo': 0,
-#             'strobe': 0,
-#             'dim': 255,
-#             'speed': 255,
-#         }
-#         self.last_state = dict(self.state)
-#         self.fps = FPSCounter(f"Gobo {self.name}")
-#         self.effects = {}
-
-#         # if self.output_config.get('MAPPING'):
-#         #     # Need audio data
-#         #     subscribe('audio', self.handle_audio)
-#         #     subscribe('beat', self.handle_beat)
-#         #     subscribe('onset', self.handle_onset)
-#         #     subscribe('idle_for', self.handle_idle_for)
-#         #     subscribe('dead_for', self.handle_dead_for)
-#         #     subscribe('idle_instant', self.handle_idle_instant)
-#         # # Also provide a way to get state from elsewhere
-#         # subscribe('set_state__' + self.name, self.handle_set_state)
-
-#     def start(self, data):
-#         if hasattr(self, 'INITIALIZE'):
-#             self.state = dict(self.INITIALIZE)
-#             self.last_state = dict(self.state)
-#             self.send_dmx(data)
-
-#     def run(self, data):
-#         with self.fps:
-#             new_state = data.get('gobo_state__' + self.name)
-#             if new_state:
-#                 self.state = dict(new_state)
-#             if self.output_config.get('MAPPING'):
-#                 self._run_effects(data)
-
-#                 fns = [
-#                     self._apply_dead_coasting,
-#                     self._apply_idle_coasting,
-#                     self._apply_idle_fadeout,
-#                     self._run_mapping,
-#                 ]
-#                 for fn in fns:
-#                     if fn(data):
-#                         break
-
-#             self.send_dmx(data)
-
-#     def _apply_dead_coasting(self, data):
-#         speed = 20
-#         dim = 75
-#         if (data.get('dead_for') or 0) >= 2:
-#             # If we're dead for 2s, go into dead coasting
-#             if self.state['speed'] != speed or self.state['dim'] != dim:
-#                 self.state['speed'] = speed
-#                 self.effects['dim'] = Effect(self.state['dim'], dim, 1, dim)
-#                 self.send_dmx(data, True)
-#             if 'pan' not in self.effects:
-#                 self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 8)
-#             if 'tilt' not in self.effects:
-#                 self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 8)
-#             if 'color' not in self.effects:
-#                 v = self.map_color(1, 0)
-#                 self.effects['color'] = Effect(v, v, 8)
-#             if 'gobo' not in self.effects:
-#                 v = self.map_gobo(1, 0)
-#                 self.effects['gobo'] = Effect(v, v, 8)
-
-#             return True
-#         # else:
-#         #     # Not dead anymore
-#         #     for k in ('pan', 'tilt', 'color', 'gobo', 'dim'):
-#         #         if k in self.effects:
-#         #             del self.effects[k]
-#         #     if self.state['speed'] != 255 or self.state['dim'] != 255:
-#         #         self.state['speed'] = 255
-#         #         self.state['dim'] = 255
-#         #         self.send_dmx(data, True)
-
-#     def _apply_idle_coasting(self, data):
-#         speed = 31
-#         idle_pan_tilt = time.time() - max(self.last_function['pan'], self.last_function['tilt']) >= 2
-#         if data.get('audio_v_sum') and idle_pan_tilt:
-#             # Below threshold, but there's still audio
-#             # Only called if mapping is set
-#             if self.state['speed'] != speed:
-#                 self.state['speed'] = speed
-#                 self.send_dmx(data, True)
-#             if 'pan' not in self.effects:
-#                 self.effects['pan'] = Effect(self.state['pan'], random.randint(0, 255), 5)
-#             if 'tilt' not in self.effects:
-#                 self.effects['tilt'] = Effect(self.state['tilt'], random.randint(0, 255), 5)
-
-#             # Don't return true, so that mapping is still run
-#             # This allows pan/tilt to be updated
-#             # return True
-#         # else:
-#         #     for k in ('pan', 'tilt'):
-#         #         if k in self.effects:
-#         #             del self.effects[k]
-#         #     if self.state['speed'] != 255:
-#         #         self.state['speed'] = 255
-#         #         self.send_dmx(data, True)
-
-#     def _apply_idle_fadeout(self, data):
-#         if data.get('idle_for'):
-#             if 'dim' not in self.effects and self.state['dim'] > 0:
-#                 self.effects['dim'] = Effect(self.state['dim'], 0, 0.5)
-
-#             return True
-#         # else:
-#         #     if 'dim' in self.effects:
-#         #         del self.effects['dim']
-#         #     self.state['dim'] = 255
-
-#     def _run_mapping(self, data):
-#         config = self.output_config.get('MAPPING') or []
-#         now = time.time()
-#         new_state = {}
-
-#         for directive in config:
-#             arg_fn = getattr(self, 'map_' + directive['function'])
-#             arg = None
-#             value = None
-#             threshold = None
-
-#             if data.get('audio') is not None and directive['trigger'] == 'frequency':
-#                 value = []
-#                 for i in directive.get('bins') or []:
-#                     try:
-#                         iter(i)
-#                     except TypeError:
-#                         value.append(data['audio'][i])
-#                     else:
-#                         for j in range(i[0], i[1] + 1):
-#                             value.append(data['audio'][j])
-#                 if not value:
-#                     continue
-#                 # value = sum(value) / len(value)
-#                 value = max(value)
-#                 threshold = directive['threshold']
-
-#             elif data.get('is_onset') and directive['trigger'] == 'onset':
-#                 value = random.random() / 1.5
-#                 threshold = 0
-
-#             elif data.get('is_beat') and directive['trigger'] == 'beat':
-#                 value = random.random() / 1.5
-#                 threshold = 0
-
-#             if value is None or threshold is None:
-#                 continue
-
-#             arg = arg_fn(value, threshold)
-
-#             if arg is not None:
-#                 if self.last_function[directive['function']] + self.RATES[directive['function']] < now:
-#                     self.last_function[directive['function']] = now
-#                     new_state[directive['function']] = arg
-
-#         if new_state:
-#             # Not dead anymore
-#             for k in ('pan', 'tilt', 'color', 'gobo', 'dim'):
-#                 if k in self.effects:
-#                     del self.effects[k]
-#             if self.state['speed'] != 255 or self.state['dim'] != 255:
-#                 self.state['speed'] = 255
-#                 self.state['dim'] = 255
-#                 self.send_dmx(data, True)
-#             self.state.update(new_state)
-
-#     def _run_effects(self, data):
-#         done = []
-#         for fn, e in self.effects.items():
-#             value = None
-#             if e.done:
-#                 value = e.done_value
-#                 done.append(fn)
-#             else:
-#                 value = e.value
-
-#             self.state[fn] = value
-#             # print(f"effect {fn} {value}")
-
-#         for k in done:
-#             del self.effects[k]
-
-
-
-#     def map_dim(self, value, threshold):
-#         # Use effects/dead instead
-#         return
-#         # if value > threshold:
-#         #     if 'dim' in self.effects:
-#         #         del self.effects['dim']
-#         #     return 255
-#         # if 'dim' not in self.effects and self.state['dim'] > 0:
-#         #     self.effects['dim'] = Effect(255, 0, 0.5)
-
-#     def prep_dmx(self):
-#         out = dict(self.state)
-#         changed = {}
-#         for k, v in out.items():
-#             if v != self.last_state[k]:
-#                 changed[k] = v
-#         # if changed:
-#         #     print(self.name, changed)
-#         return out
-
-#     def send_dmx(self, data, force=False):
-#         if self.config.get('ENABLE_LINKS'):
-#             # Update linked state prior to prep
-#             for linked in self.output_config.get('LINK') or []:
-#                 # Prevent an infinite loop
-#                 if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
-#                     # TODO: log
-#                     continue
-#                 linked_state = dict(self.state)
-#                 for fn in linked.get('INVERT') or []:
-#                     linked_state[fn] = 255 - linked_state[fn]
-#                 data['gobo_state__' + linked.get('NAME')] = linked_state
-
-#         state = self.prep_dmx()
-#         channels = {self.CHANNEL_MAP[chan] + self.output_config.get('ADDRESS', 1) - 1: val for chan, val in state.items()}
-#         data.setdefault('dmx_force' if force else 'dmx', {}).update(channels)
-#         # TODO: send to linked
-#         self.last_state = dict(self.state)
-
+    ENUMS = {
+        'color': {
+            'white': (0, 9),
+            'yellow': (10, 19),
+            'orange': (20, 29),
+            'cyan': (30, 39),
+            'blue': (40, 49),
+            'green': (50, 59),
+            'pink': (60, 69),
+            'red': (70, 79),
+            'pink_red': (80, 89),
+            'green_pink': (90, 99),
+            'blue_green': (100, 109),
+            'cyan_blue': (110, 119),
+            'orange_cyan': (120, 129),
+            'yellow_orange': (130, 139),
+        },
+        'gobo': {
+            'none': (0, 7),
+            'broken_circle': (8, 15),
+            'burst': (16, 23),
+            '3_spot_circle': (24, 31),
+            'square_spots': (32, 39),
+            'droplets': (40, 47),
+            'swirl': (48, 55),
+            'stripes': (56, 63),
+            'dither_none': (64, 71),
+            'dither_broken_circle': (72, 79),
+            'dither_burst': (80, 87),
+            'dither_3_spot_circle': (88, 95),
+            'dither_square_spots': (96, 103),
+            'dither_droplets': (104, 111),
+            'dither_swirl': (112, 119),
+            'dither_stripes': (120, 127),
+        }
+    }

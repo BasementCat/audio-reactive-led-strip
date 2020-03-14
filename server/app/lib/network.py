@@ -81,7 +81,14 @@ class Network(object):
                 self.clients.append(newsock)
 
                 self.send_command(newsock, 'LIGHTS', *[
-                    {'type': l.__class__.__name__, 'name': l.name, 'functions': list(getattr(l, 'FUNCTIONS', {}).keys()), 'state': getattr(l, 'state', {}), 'speeds': getattr(l, 'SPEEDS', {})}
+                    {
+                        'type': l.__class__.__name__,
+                        'name': l.name,
+                        'functions': list(getattr(l, 'FUNCTIONS', {}).keys()),
+                        'state': getattr(l, 'state', {}),
+                        'speeds': getattr(l, 'SPEEDS', {}),
+                        'enums': getattr(l, 'ENUMS', {}),
+                    }
                     for l in self.lights
                 ], suspended=data.get('SUSPENDED', False))
             else:

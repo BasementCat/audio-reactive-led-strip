@@ -22,7 +22,8 @@ class BasicDMX(Output):
             red/green/blue - RGB lights
             white/amber/uv - Lights w/ additional colors
     RATES: Dict mapping each function to how often it's allowed to change
-    SPEEDS: For each function, how long does that function take to change (based on the set speed) - pair of min/max values
+    SPEEDS: For each function, how long does that function take to change (based on the set speed) - pair of min/max values, or single value if it is not dependent upon speed
+    ENUMS: For functions with fixed sets of values, a dictionary of function name -> value name -> value range pair
     INITIALIZE: Dict of initial function values
     INVERT: List of properties to invert
     CLEAR_EFFECTS_ON_NEW_STATE: List of properties to remove effects for when a
@@ -35,6 +36,7 @@ class BasicDMX(Output):
     FUNCTIONS = {}
     RATES = {}
     SPEEDS = {}
+    ENUMS = {}
     INITIALIZE = {}
     INVERT = []
     CLEAR_EFFECTS_ON_NEW_STATE = []
