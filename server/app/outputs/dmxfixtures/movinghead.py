@@ -82,6 +82,12 @@ class MovingHeadMixin:
     Basic moving head light.
     """
 
+    # Probably should adjust these per light
+    SPEEDS = {
+        'pan': (25, 1),
+        'tilt': (10, 0.5),
+    }
+
     def _get_dead_coasting_effects(self):
         return {}
 

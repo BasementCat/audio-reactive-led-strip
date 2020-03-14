@@ -80,8 +80,8 @@ class Network(object):
                 logger.info("Network input has new connection from %s", addr)
                 self.clients.append(newsock)
 
-                self.send_command(newsock, 'LIGHTS', [
-                    {'type': l.__class__.__name__, 'name': l.name}
+                self.send_command(newsock, 'LIGHTS', *[
+                    {'type': l.__class__.__name__, 'name': l.name, 'functions': list(getattr(l, 'FUNCTIONS', {}).keys()), 'state': getattr(l, 'state', {}), 'speeds': getattr(l, 'SPEEDS', {})}
                     for l in self.lights
                 ], suspended=data.get('SUSPENDED', False))
             else:
