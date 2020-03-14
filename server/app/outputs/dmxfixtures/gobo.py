@@ -20,9 +20,6 @@ class GoboMixin:
             'gobo': Effect(gobo, gobo, 8),
         }
 
-    def get_state_chain(self):
-        return [self._apply_dead_coasting, self._apply_idle_coasting, self._apply_idle_fadeout]
-
     def _map_pan_tilt(self, function, trigger, value, threshold):
         if value < threshold:
             return

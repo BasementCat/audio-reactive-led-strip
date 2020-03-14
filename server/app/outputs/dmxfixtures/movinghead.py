@@ -1,11 +1,80 @@
 import random
 import time
 
-from app.effects import Effect
+from app.effects import Effect, StateEffect
 from app.lib.misc import map_to_range
 
 from . import BasicDMX
 
+
+class DeadCoastingStateEffect(StateEffect):
+    FUNCTIONS = ['speed', 'dim']
+
+    def __init__(self, speed=5, dim=20, delay=2, dim_duration=1, move_duration=8, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.speed = speed
+        self.dim = dim
+        self.delay = delay
+        self.dim_duration = dim_duration
+        self.move_duration = move_duration
+
+    def applicable(self, light, data):
+        return (data.get('dead_for') or 0) > self.delay
+
+    def apply(self, light, data):
+        light.state['speed'] = self.speed
+        light.add_effect('dim', Effect(light.state['dim'], self.dim, self.dim_duration), overwrite=True)
+
+    def run(self, light, data):
+        light.add_effect('pan', Effect(random.randint(0, 255), None, 8))
+        light.add_effect('tilt', Effect(random.randint(0, 255), None, 8))
+        if hasattr(light, '_get_dead_coasting_effects'):
+            for k, e in light._get_dead_coasting_effects().items():
+                light.add_effect(k, e)
+
+
+class IdleCoastingStateEffect(StateEffect):
+    FUNCTIONS = ['speed']
+
+    def __init__(self, speed=31, delay=2, move_duration=5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.speed = speed
+        self.delay = delay
+        self.move_duration = move_duration
+
+    def applicable(self, light, data):
+        idle_pan_tilt = time.time() - max(light.last_function['pan'], light.last_function['tilt']) >= self.delay
+        return data.get('audio_v_sum') and idle_pan_tilt
+
+    def apply(self, light, data):
+        light.state['speed'] = self.speed
+
+    def run(self, light, data):
+        light.add_effect('pan', Effect(random.randint(0, 255), None, self.move_duration))
+        light.add_effect('tilt', Effect(random.randint(0, 255), None, self.move_duration))
+
+
+class IdleFadeoutStateEffect(StateEffect):
+    FUNCTIONS = ['dim']
+
+    def __init__(self, delay=0.25, dim_duration=0.5, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.delay = delay
+        self.dim_duration = dim_duration
+        # self.applied = None
+
+    def applicable(self, light, data):
+        # if self.applied and time.time() - self.applied > self.dim_duration:
+        #     return False
+        return (data.get('idle_for') or 0) > self.delay
+
+    def apply(self, light, data):
+        light.add_effect('dim', Effect(light.state['dim'], 0, self.dim_duration), overwrite=True)
+    #     self.applied = time.time()
+
+    # def unapply(self, light, data):
+    #     super().unapply(light, data)
+    #     self.applied = None
 
 
 class MovingHeadMixin:
@@ -13,48 +82,11 @@ class MovingHeadMixin:
     Basic moving head light.
     """
 
-    def _get_dead_coasting_color_effect(self):
+    def _get_dead_coasting_effects(self):
         return {}
 
-    def _apply_dead_coasting(self, data):
-        # speed = 20
-        speed = 5
-        # dim = 75
-        dim = 20
-        if (data.get('dead_for') or 0) >= 2:
-            # If we're dead for 2s, go into dead coasting
-            if self.state['speed'] != speed or self.state['dim'] != dim:
-                self.state['speed'] = speed
-                self.add_effect('dim', Effect(self.state['dim'], dim, 1, dim))
-                self.send_dmx(data, True)
-            self.add_effect('pan', Effect(random.randint(0, 255), None, 8))
-            self.add_effect('tilt', Effect(random.randint(0, 255), None, 8))
-            for k, e in self._get_dead_coasting_effects().items():
-                self.add_effect(k, e)
-
-            return True
-
-    def _apply_idle_coasting(self, data):
-        speed = 31
-        idle_pan_tilt = time.time() - max(self.last_function['pan'], self.last_function['tilt']) >= 2
-        if data.get('audio_v_sum') and idle_pan_tilt:
-            # Below threshold, but there's still audio
-            # Only called if mapping is set
-            if self.state['speed'] != speed:
-                self.state['speed'] = speed
-                self.send_dmx(data, True)
-            self.add_effect('pan', Effect(random.randint(0, 255), None, 5))
-            self.add_effect('tilt', Effect(random.randint(0, 255), None, 5))
-
-            # Don't return true, so that mapping is still run
-            # This allows pan/tilt to be updated
-            # return True
-
-    def _apply_idle_fadeout(self, data):
-        return
-        if (data.get('idle_for') or 0) > 0.25:
-            self.add_effect('dim', Effect(self.state['dim'], 0, 0.25))
-            return True
+    def get_state_effects(self):
+        return [DeadCoastingStateEffect(), IdleCoastingStateEffect(), IdleFadeoutStateEffect()]
 
 
 class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
@@ -107,9 +139,6 @@ class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
                 2
             )
         }
-
-    def get_state_chain(self):
-        return [self._apply_dead_coasting, self._apply_idle_coasting, self._apply_idle_fadeout]
 
     def _map_pan_tilt(self, function, value, threshold):
         if value < threshold:

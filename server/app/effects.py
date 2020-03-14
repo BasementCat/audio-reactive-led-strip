@@ -61,6 +61,34 @@ class Effect(object):
         return self.done_value_real
 
 
+class StateEffect(object):
+    # These functions are re-initialized on removal of the effect
+    FUNCTIONS = []
+
+    def __init__(self, *args, **kwargs):
+        pass
+
+    def applicable(self, light, data):
+        # Return True if the effect should be applied, False otherwise
+        return False
+
+    def apply(self, light, data):
+        # Called once on application of the effect
+        # The caller should call send_dmx w/ force after call
+        pass
+
+    def run(self, light, data):
+        # Called on every loop through run()
+        pass
+
+    def unapply(self, light, data):
+        # Called when the effect is removed
+        # The caller should call send_dmx w/ force after call
+        for k in self.FUNCTIONS:
+            if k in light.state and k in light.INITIALIZE:
+                light.state[k] = light.INITIALIZE[k]
+
+
 if __name__ == '__main__':
     print("UP:")
     e = Effect(0, 255, 1)

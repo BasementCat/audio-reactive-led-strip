@@ -47,17 +47,18 @@ class BasicDMX(Output):
         self.last_state = dict(self.state)
         self.fps = FPSCounter(f"{self.__class__.__name__} {self.name}")
         self.effects = {}
+        self.state_effect = None
+        self.state_effects = self.get_state_effects()
 
     def start(self, data):
         self.state.update(self.INITIALIZE)
         self.last_state = dict(self.state)
         self.send_dmx(data)
 
-    def get_state_chain(self):
+    def get_state_effects(self):
         """\
-        Return a list of functions to run after effects but before mapping. The
-        functions should accept data as a parameter, and return True to stop the
-        remainder of the chain (and the mapping) from processing.
+        Return a list of state effects to run after effects but before mapping. The
+        objects should inherit from effects.StateEffect.
         """
         return []
 
@@ -70,9 +71,26 @@ class BasicDMX(Output):
                 if self.output_config.get('MAPPING'):
                     self._run_effects(data)
 
-                    fns = self.get_state_chain()
-                    for fn in fns:
-                        if fn(data):
+                    if self.state_effect:
+                        if not self.state_effect.applicable(self, data):
+                            send_monitor(self, 'STATE_EFFECT', opstate='DONE', opname=self.state_effect.__class__.__name__)
+                            self.state_effect.unapply(self, data)
+                            self.state_effect = None
+                            self.send_dmx(data, True)
+                        else:
+                            self.state_effect.run(self, data)
+
+                    for e in self.state_effects:
+                        if e is self.state_effect:
+                            break
+                        if e.applicable(self, data):
+                            if self.state_effect:
+                                send_monitor(self, 'STATE_EFFECT', opstate='DONE', opname=self.state_effect.__class__.__name__)
+                                self.state_effect.unapply(self, data)
+                            self.state_effect = e
+                            e.apply(self, data)
+                            self.send_dmx(data, True)
+                            send_monitor(self, 'STATE_EFFECT', opstate='NEW', opname=self.state_effect.__class__.__name__)
                             break
 
                     self._run_mapping(data)
