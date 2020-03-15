@@ -95,8 +95,9 @@ class MovingHeadOutput extends Output {
 
         this.is_rgb = array_has(light.functions, ['red', 'green', 'blue']);
 
-        this.color_set = {};
+        this.color_set = null;
         if (array_has(light.functions, ['color']) && light.enums.color) {
+            this.color_set = {};
             Object.entries(light.enums.color).forEach(v => {
                 var color;
                 if (/_/.test(v[0])) {
@@ -110,13 +111,54 @@ class MovingHeadOutput extends Output {
             });
         }
 
+        this.gobo_set = null;
+        if (array_has(light.functions, ['gobo']) && light.enums.gobo) {
+            this.gobo_set = {};
+            Object.entries(light.enums.gobo).forEach(v => {
+                var gobo, dither
+                if (/^dither_/.test(v[0])) {
+                    gobo = v[0].substring(7);
+                    dither = true;
+                } else {
+                    gobo = v[0];
+                    dither = false;
+                }
+                for (var i = v[1][0]; i <= v[1][1]; i++) {
+                    this.gobo_set[i] = {'gobo': gobo, 'dither': dither};
+                }
+            });
+        }
+        // ENUMS = {
+        // 'gobo': {
+        //     'none': (0, 7),
+        //     'broken_circle': (8, 15),
+        //     'burst': (16, 23),
+        //     '3_spot_circle': (24, 31),
+        //     'square_spots': (32, 39),
+        //     'droplets': (40, 47),
+        //     'swirl': (48, 55),
+        //     'stripes': (56, 63),
+        //     'dither_none': (64, 71),
+        //     'dither_broken_circle': (72, 79),
+        //     'dither_burst': (80, 87),
+        //     'dither_3_spot_circle': (88, 95),
+        //     'dither_square_spots': (96, 103),
+        //     'dither_droplets': (104, 111),
+        //     'dither_swirl': (112, 119),
+        //     'dither_stripes': (120, 127),
+        // }
+
         this.dest = dest;
 
         this.effects = {};
         this.state_effects = {};
 
         // All the elements that make up the light
-        this.light_bulb = make_el('div', null, ['light_bulb']);
+        this.gobo_img = null;
+        if (this.gobo_set) {
+            this.gobo_img = make_el('img', null, ['gobo']);
+        }
+        this.light_bulb = make_el('div', this.gobo_img, ['light_bulb']);
         this.light_head = make_el('div', this.light_bulb, ['light_head']);
         this.light_body = make_el('div', this.light_head, ['light_body']);
         this.effects_list = make_el('ul', null, ['info_list', 'effects']);
@@ -156,6 +198,18 @@ class MovingHeadOutput extends Output {
             var color = this.color_set[this.light.state.color];
             this.light_bulb.style.background = 'linear-gradient(90deg, ' + color[0] + ' 0%, ' + color[0] + ' 50%, ' + color[1] + ' 50%, ' + color[1] + ' 100%)';
         }
+
+        if (this.gobo_set) {
+            var gobo = this.gobo_set[this.light.state.gobo];
+            if (!gobo || gobo.gobo == 'none') {
+                this.gobo_img.style.display = 'none';
+            } else {
+                this.gobo_img.style.display = 'block';
+                this.gobo_img.src = '/static/gobos/' + gobo.gobo + '.png';
+                // TODO: dither
+            }
+        }
+
         // TODO: do this better
         this.light_bulb.style.opacity = this.light.state.dim / 255;
 
