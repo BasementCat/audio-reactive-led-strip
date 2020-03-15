@@ -128,25 +128,6 @@ class MovingHeadOutput extends Output {
                 }
             });
         }
-        // ENUMS = {
-        // 'gobo': {
-        //     'none': (0, 7),
-        //     'broken_circle': (8, 15),
-        //     'burst': (16, 23),
-        //     '3_spot_circle': (24, 31),
-        //     'square_spots': (32, 39),
-        //     'droplets': (40, 47),
-        //     'swirl': (48, 55),
-        //     'stripes': (56, 63),
-        //     'dither_none': (64, 71),
-        //     'dither_broken_circle': (72, 79),
-        //     'dither_burst': (80, 87),
-        //     'dither_3_spot_circle': (88, 95),
-        //     'dither_square_spots': (96, 103),
-        //     'dither_droplets': (104, 111),
-        //     'dither_swirl': (112, 119),
-        //     'dither_stripes': (120, 127),
-        // }
 
         this.dest = dest;
 
@@ -160,7 +141,8 @@ class MovingHeadOutput extends Output {
         }
         this.light_bulb = make_el('div', this.gobo_img, ['light_bulb']);
         this.light_head = make_el('div', this.light_bulb, ['light_head']);
-        this.light_body = make_el('div', this.light_head, ['light_body']);
+        this.light_name = make_el('span', this.light.type + ' ' + this.light.name, ['light_name']);
+        this.light_body = make_el('div', [this.light_head, this.light_name], ['light_body']);
         this.effects_list = make_el('ul', null, ['info_list', 'effects']);
         this.state_effects_list = make_el('ul', null, ['info_list', 'state_effects']);
         this.light_container = make_el('div', [this.light_body, this.state_effects_list, this.effects_list], ['light_container']);

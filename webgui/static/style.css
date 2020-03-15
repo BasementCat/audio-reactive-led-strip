@@ -1,19 +1,19 @@
 .light_body {
     float: left;
     margin: 1em;
-    width: 200px;
-    height: 200px;
+    /*width: 200px;*/
+    /*height: 200px;*/
     background-color: #ddd;
     border-radius: 6px;
 }
 
 .light_head {
-    width: 90%;
-    height: 90%;
+    width: 190px;
+    height: 190px;
     position: relative;
     border-radius: 50%;
     float: none;
-    margin: auto;
+    margin: 1em;
     border: 1px solid black;
     background-color: white;
 }
