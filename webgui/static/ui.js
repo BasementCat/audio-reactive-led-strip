@@ -245,15 +245,59 @@ class Light {
     }
 }
 
+class AudioGraphOutput {
+    constructor(dest) {
+        this.dest = dest;
+        this.container = make_el('div', null, ['audio_graph']);
+        dest.appendChild(this.container);
+        // TODO: get bins from server
+        this.bins = 24;
+        this.empty_data = [];
+        for (var i = 0; i < this.bins; i++) {
+            this.empty_data.push([i, 0]);
+        }
+        this.data = this.empty_data;
+        this.plot = $.plot(this.container, [this.data, {}], {
+            series: {
+                lines: { show: true },
+                points: { show: true },
+                color: 'purple',
+            },
+            yaxis: {
+                min: 0,
+                max: 1,
+            }
+        });
+    }
+
+    update(data) {
+        if (data) {
+            this.data = [];
+            for (var i = 0; i < this.bins; i++) {
+                this.data.push([i, data[i]]);
+            }
+        } else {
+            this.data = this.empty_data;
+        }
+        this.plot.setData([this.data]);
+        this.plot.draw();
+    }
+
+    destroy() {
+        this.dest.removeChild(this.container);
+    }
+}
+
 var lights = {};
-var table_output;
+var table_output, audio_graph_output;
 
 
 function reset_lights() {
     Object.entries(lights).forEach(v => v[1].destroy());
     lights = {};
     table_output && table_output.destroy();
-    table_output = null;
+    audio_graph_output && audio_graph_output.destroy();
+    table_output = audio_graph_output = null;
 }
 
 
@@ -269,6 +313,9 @@ socket.on('MONITOR', function(d) {
         } else if (event.op == 'EFFECT' || event.op == 'STATE_EFFECT') {
             if (!lights[event.name]) return;
             lights[event.name].monitor_event(event);
+        } else if (event.op == 'AUDIO') {
+            if (!audio_graph_output) audio_graph_output = new AudioGraphOutput(document.body);
+            audio_graph_output.update(event.state.bins);
         } else {
             console.log("mon %o", event);
         }

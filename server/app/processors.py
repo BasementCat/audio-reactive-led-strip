@@ -7,6 +7,7 @@ import aubio
 from app import Task
 from app.lib.dsp import create_mel_bank, ExpFilter
 from app.lib.misc import FPSCounter
+from app.lib.network import send_monitor
 
 
 class Processor(Task):
@@ -66,6 +67,8 @@ class SmoothingProcessor(Processor):
 
             if output is not None:
                 data['audio'] = output
+
+            send_monitor(None, 'AUDIO', bins=list(output))
 
 
 class BeatProcessor(Processor):

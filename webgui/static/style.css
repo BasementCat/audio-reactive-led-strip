@@ -40,3 +40,10 @@
 .info_list {
     display: none;
 }
+
+.audio_graph {
+    width: 100%;
+    height: 300px;
+    display: block;
+    clear: both;
+}
