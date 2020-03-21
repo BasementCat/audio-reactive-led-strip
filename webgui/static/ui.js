@@ -328,7 +328,13 @@ socket.on('LIGHTS', function(d) {
         lights[light.name] = light;
     });
     table_output = new TableOutput(document.body, Object.entries(lights).map(v => v[1]));
+
+    document.querySelector('#suspend').checked = d.kwargs.SUSPENDED;
 });
 socket.on('QUIT', function(d) {
     reset_lights();
+});
+
+document.querySelector('#suspend').addEventListener('change', function(e) {
+    socket.emit('suspend', {args: [e.target.checked]});
 });

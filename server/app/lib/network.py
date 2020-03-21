@@ -195,6 +195,14 @@ class Network(object):
                     out.append({'light': l.name, 'result': None})
                 continue
 
+            # TODO: per light/type, define what props must be sent immediately
+            if 'speed' in props or 'dim' in props:
+                l.state.update({
+                    'speed': props.get('speed', l.state['speed']),
+                    'dim': props.get('dim', l.state['dim']),
+                })
+                l.send_dmx({}, force=True)
+
             l.state.update(props)
             out.append({'light': l.name, 'result': True})
 

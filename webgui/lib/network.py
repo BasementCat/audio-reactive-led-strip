@@ -8,11 +8,16 @@ import json
 logger = logging.getLogger(__name__)
 
 lights = []
+queue = []
 
 
 def network_on_connect(sio):
     if lights:
         sio.emit('LIGHTS', {'args': lights, 'kwargs': {}})
+
+
+def send(command, *args, **kwargs):
+    queue.append(json.dumps({'command': command, 'args': args, 'kwargs': kwargs}).encode('utf-8') + b'\n')
 
 
 def network_task(sio, stop_event, host='localhost', port=37737):
@@ -22,6 +27,7 @@ def network_task(sio, stop_event, host='localhost', port=37737):
     while not stop_event.is_set():
         if sock is None:
             lights[:] = []
+            queue[:] = []
             buf = ''
             try:
                 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -31,6 +37,12 @@ def network_task(sio, stop_event, host='localhost', port=37737):
                 sock = None
                 sio.sleep(1)
                 continue
+
+        for c in queue:
+            s = 0
+            while s < len(c):
+                s += sock.send(c[s:])
+        queue[:] = []
 
         r, _, _ = select.select([sock], [], [])
         if r:

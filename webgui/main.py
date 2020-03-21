@@ -3,7 +3,7 @@ import threading
 from flask import Flask, render_template
 from flask_socketio import SocketIO
 
-from lib.network import network_on_connect, network_task
+from lib.network import network_on_connect, network_task, send as net_send
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'secret!'
@@ -19,6 +19,10 @@ def index():
 @socketio.on('connect')
 def connect():
     network_on_connect(socketio)
+
+@socketio.on('suspend')
+def suspend(data):
+    net_send('suspend', *data.get('args', []), **data.get('kwargs', {}))
 
 
 if __name__ == '__main__':
