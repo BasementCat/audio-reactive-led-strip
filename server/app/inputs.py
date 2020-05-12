@@ -40,11 +40,16 @@ class DeviceInput(Input):
         except (TypeError, ValueError):
             device = self.config.get('INPUT_DEVICE')
             for k, v in valid_input_devices.items():
-                if device in v:
+                if device == v:
                     device_num = k
                     break
+            if device_num is None:
+                for k, v in valid_input_devices.items():
+                    if device in v:
+                        device_num = k
+                        break
 
-        if not device_num:
+        if device_num is None:
             print(f"Invalid device {device} - valid devices are:")
             for k in sorted(valid_input_devices.keys()):
                 print(f"{k}: {valid_input_devices[k]}")
