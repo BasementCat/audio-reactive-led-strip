@@ -21,9 +21,10 @@ def send_monitor(output, op, opstate=None, opname=None, **state):
 
 
 class Network(object):
-    def __init__(self, config, lights=None):
+    def __init__(self, config, lights=None, monitor=False):
         self.config = config
         self.lights = lights or []
+        self.monitor = monitor
 
         host = self.config.get('NETWORK_HOST', '0.0.0.0')
         port = self.config.get('NETWORK_PORT', 37737)
@@ -139,6 +140,12 @@ class Network(object):
 
     def run_output(self, data):
         # TODO: only send to monitoring clients
+        if self.monitor:
+            for v in monitor_queue:
+                # TODO: allow filtering
+                if v.get('op') == 'AUDIO':
+                    continue
+                print('MONITOR', v)
         if monitor_queue:
             for c in self.clients:
                 self.send_command(c, 'MONITOR', *monitor_queue)

@@ -19,6 +19,7 @@ def parse_args():
     p.add_argument('-c', '--config', help="Configuration file")
     p.add_argument('-m', '--manual', help="Manual control")
     p.add_argument('-r', '--record', help="Record states to this file")
+    p.add_argument('--monitor', action='store_true')
     return p.parse_args()
 
 
@@ -55,7 +56,7 @@ def run(args):
     if config.get('DMX_DEVICE'):
         tasks.append(DMX('dmx', config))
 
-    network = Network(config, lights)
+    network = Network(config, lights, monitor=args.monitor)
     tasks.insert(0, NetworkTask('netinput', config, network, 'input'))
     tasks.append(NetworkTask('netoutput', config, network, 'output'))
 
