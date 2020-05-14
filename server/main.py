@@ -2,6 +2,7 @@
 
 import argparse
 
+from app import NoData
 from app.lib.config import parse_config
 from app.lib.network import Network, NetworkTask
 from app.inputs import DeviceInput
@@ -67,7 +68,10 @@ def run(args):
             while True:
                 data = {}
                 for t in tasks:
-                    t.run(data)
+                    try:
+                        t.run(data)
+                    except NoData:
+                        break
         except KeyboardInterrupt:
             # Suppress
             pass

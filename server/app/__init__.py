@@ -11,3 +11,7 @@ class Task(object):
 
     def run(self, data):
         pass
+
+
+class NoData(Exception):
+    pass
