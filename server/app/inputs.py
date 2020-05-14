@@ -115,7 +115,7 @@ class DeviceInput(Input):
             else:
                 logger.error("Process is not alive")
 
-        self.watchdog.value = time.time()
+        self.watchdog.value = time.time() + 0.5
         self.process = multiprocessing.Process(target=device_input_process, args=(self.watchdog, self.config['INPUT_DEVICE'], self.config['MIC_RATE'], self.frames_per_buffer, self.queue, self.stop_event))
         self.process.start()
 

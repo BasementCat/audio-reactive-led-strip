@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 
 import argparse
+import logging
 
 from app import NoData
 from app.lib.config import parse_config
@@ -13,6 +14,9 @@ from app.outputs.dmxfixtures.laser import Generic4ColorLaser
 from app.outputs.led import RemoteStrip
 from app.outputs.gui import GUI
 from app.outputs.dmx import DMX
+
+
+logging.basicConfig(level=logging.DEBUG)
 
 
 def parse_args():
