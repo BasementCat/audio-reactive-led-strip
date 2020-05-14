@@ -168,3 +168,7 @@ def _parse_output__UnnamedGobo(output):
 def _parse_output__TomshineMovingHead6in1(output):
     # required_keys = ('NAME')
     return output
+
+
+def _parse_output__Generic4ColorLaser(output):
+    return output

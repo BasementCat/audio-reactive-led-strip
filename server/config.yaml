@@ -91,6 +91,18 @@ OUTPUTS:
         DEVICE: TomshineMovingHead6in1
         ADDRESS: 85
     -
+        NAME: laser
+        DEVICE: Generic4ColorLaser
+        ADDRESS: 103
+        MAPPING:
+            - {trigger: "beat", function: "pattern"}
+            - {trigger: "onset", function: "x"}
+            - {trigger: "onset", function: "y"}
+            # - {trigger: "frequency", bins: [[0, 2]], function: "pattern_size", threshold: 0.4}
+            # - {trigger: "frequency", bins: [[12, 18]], function: "pattern_size", threshold: -0.4}
+            - {trigger: "beat", function: "pattern_size"}
+
+    -
         NAME: ledstrip
         DEVICE: RemoteStrip
         HOST: "10.0.1.10"
