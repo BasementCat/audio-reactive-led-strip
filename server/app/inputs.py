@@ -6,6 +6,8 @@ import select
 import re
 import multiprocessing
 from multiprocessing.queues import Empty
+import os
+import signal
 
 import numpy as np
 import pyaudio
@@ -59,7 +61,7 @@ def get_device_index(in_device, pa=None):
     return device_num
 
 
-def device_input_process(device, mic_rate, frames_per_buffer, queue, stop_event):
+def device_input_process(wd, device, mic_rate, frames_per_buffer, queue, stop_event):
     import numpy as np
     import pyaudio
     pa = pyaudio.PyAudio()
@@ -76,6 +78,7 @@ def device_input_process(device, mic_rate, frames_per_buffer, queue, stop_event)
 
     try:
         while not stop_event.is_set():
+            wd.value = time.time()
             try:
                 queue.put(stream.read(frames_per_buffer, exception_on_overflow=False))
                 stream.read(stream.get_read_available(), exception_on_overflow=False)
@@ -97,14 +100,23 @@ class DeviceInput(Input):
         # Actually can't do validation here, breaks pyaudio w/ multiprocessing
         # get_device_index(self.config['INPUT_DEVICE'])
         self.process = None
+        self.watchdog = multiprocessing.Value('d', 0.0)
         self.stop_event = multiprocessing.Event()
         self.queue = multiprocessing.Queue(maxsize=1)
 
     def start_process(self):
-        if self.process and self.process.is_alive():
-            return
+        if self.process:
+            if self.process.is_alive():
+                if time.time() - self.watchdog.value < 0.1:
+                    return
+                else:
+                    logger.error("watchdog not updated for >1s")
+                    os.kill(self.process.pid, signal.SIGKILL)
+            else:
+                logger.error("Process is not alive")
 
-        self.process = multiprocessing.Process(target=device_input_process, args=(self.config['INPUT_DEVICE'], self.config['MIC_RATE'], self.frames_per_buffer, self.queue, self.stop_event))
+        self.watchdog.value = time.time()
+        self.process = multiprocessing.Process(target=device_input_process, args=(self.watchdog, self.config['INPUT_DEVICE'], self.config['MIC_RATE'], self.frames_per_buffer, self.queue, self.stop_event))
         self.process.start()
 
     def start(self, data):
@@ -117,11 +129,11 @@ class DeviceInput(Input):
 
     def run(self, data):
         self.start_process()
-        with self.fps:
-            try:
-                raw_data = self.queue.get(block=False)
+        try:
+            raw_data = self.queue.get(block=False)
+            with self.fps:
                 raw_data = np.fromstring(raw_data, dtype=np.int16)
                 raw_data = raw_data.astype(np.float32)
                 data['raw_audio'] = raw_data
-            except Empty:
-                raise NoData()
+        except Empty:
+            raise NoData()

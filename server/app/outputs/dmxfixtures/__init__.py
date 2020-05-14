@@ -218,6 +218,7 @@ class BasicDMX(Output):
             if v != self.last_state[k]:
                 changed[k] = v
         if changed:
+            # print(changed)
             send_monitor(self, 'STATE', **changed)
 
         for k in self.INVERT:

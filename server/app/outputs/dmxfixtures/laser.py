@@ -33,7 +33,6 @@ class DeadPatternStateEffect(StateEffect):
         self.prev_mode = None
 
     def applicable(self, light, data):
-        print("dead", data.get('dead_for'))
         return (data.get('dead_for') or 0) > self.delay
 
     def apply(self, light, data):
