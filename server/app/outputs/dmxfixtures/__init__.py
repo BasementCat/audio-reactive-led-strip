@@ -45,6 +45,7 @@ class BasicDMX(Output):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.INITIALIZE = dict(self.INITIALIZE, **self.output_config.get('INITIALIZE', {}))
         self.last_function = {k: 0 for k in list(self.RATES.keys()) + list(self.FUNCTIONS.keys())}
         self.state = {k: 0 for k in self.FUNCTIONS.keys()}
         self.state.update(self.INITIALIZE)

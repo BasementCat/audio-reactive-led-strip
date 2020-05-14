@@ -68,6 +68,8 @@ OUTPUTS:
         NAME: front_1
         DEVICE: TomshineMovingHead6in1
         ADDRESS: 67
+        INITIALIZE:
+            dim: 120
         MAPPING:
             - {trigger: "onset", function: "pan"}
             - {trigger: "onset", function: "tilt"}
@@ -90,6 +92,8 @@ OUTPUTS:
         NAME: front_2
         DEVICE: TomshineMovingHead6in1
         ADDRESS: 85
+        INITIALIZE:
+            dim: 120
     -
         NAME: laser
         DEVICE: Generic4ColorLaser
