@@ -321,12 +321,51 @@ class AudioGraphOutput {
 }
 
 
+class ControlForm {
+    els = ['light','property','start','end','done','duration'];
+
+    constructor() {
+        this.form = document.getElementById('control-form');
+        this.els.forEach(n => {
+            this['el_' + n] = document.getElementById('cf-' + n);
+        });
+    }
+
+    select(light) {
+        this.el_light.value = light;
+        this.form.style.display = 'block';
+    }
+
+    focus(what) {
+        if (!what) {
+            this.els.forEach(n => {
+                this['el_' + n].blur();
+            });
+        } else {
+            this['el_' + what].focus();
+        }
+    }
+
+    clear() {
+        this.els.forEach(n => {
+            this['el_' + n].value = '';
+        });
+    }
+
+    deselect() {
+        this.form.style.display = 'none';
+        this.clear();
+    }
+}
+
+
 var lights = {};
 var table_output, audio_graph_output;
 var client_id = null;
 var container_top = document.querySelector('.output-container.top');
 var container_middle = document.querySelector('.output-container.middle');
 var container_bottom = document.querySelector('.output-container.bottom');
+var control_form = new ControlForm();
 
 
 function reset_lights() {
@@ -397,11 +436,16 @@ function poll() {
                             var l = lights[command.args[0]];
                             if (!l) return;
                             l.select();
+                            control_form.select(command.args[0]);
                             break;
                         case 'C_DESELECT':
                             for (var k in lights) {
                                 lights[k].deselect();
                             }
+                            control_form.deselect();
+                            break;
+                        case 'C_FOCUS':
+                            control_form.focus(command.args[0]);
                             break;
                         case 'QUIT':
                             reset_lights();

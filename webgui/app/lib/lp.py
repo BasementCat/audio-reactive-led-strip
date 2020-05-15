@@ -295,11 +295,12 @@ class RecordControlPage(Page):
             state = None
             if event.control_value:
                 state = state_map[(event.type, event.button)]
-                # TODO: send state to client so it knows what to focus
-                print(state)
+                self.control_page.record_focus(event, state)
                 if state == 'duration':
                     # TODO: send in control page
                     event.pm.push_page(RecordDurationPage(self))
+            else:
+                self.control_page.record_focus(event, None)
 
     def on_save_recording(self, event):
         if event.value:
@@ -437,6 +438,9 @@ class LightControlPage(NavigablePage):
         return (self._width, 8)
 
     # Recording controls
+    def record_focus(self, event, control):
+        network.send_to_client('C_FOCUS', control)
+
     def record_duration(self, event, value, unit):
         # TODO: send duration to client
         pass
