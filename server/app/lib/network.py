@@ -194,6 +194,7 @@ class Network(object):
         self.send_command(s, 'OK', *out)
 
     def _command_set(self, s, *names, **props):
+        relative = props.pop('_relative', False)
         lights = list(filter(lambda v: v.name in names, self.lights)) if names else self.lights
         out = []
         for l in lights:
@@ -201,6 +202,12 @@ class Network(object):
                 if names:
                     out.append({'light': l.name, 'result': None})
                 continue
+
+            if relative:
+                # add the value in props to the current state
+                for k, v in props.items():
+                    if k in l.state:
+                        props[k] = min(255, max(0, l.state[k] + v))
 
             # TODO: per light/type, define what props must be sent immediately
             if 'speed' in props or 'dim' in props:

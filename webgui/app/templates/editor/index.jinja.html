@@ -1,0 +1,42 @@
+{% extends "base.jinja.html" %}
+
+{% block title %}Editor{% endblock %}
+
+{% block content %}
+    <div class="container">
+        <div class="row">
+            <div class="col-sm-4">
+                <h2>Effect Stacks</h2>
+                <a class="btn btn-primary" href="{{ url_for('.edit', type_='stack') }}">New</a>
+                <ul class="list-group">
+                    {% for s in stacks %}
+                        <li class="list-group-item"><a href="{{ url_for('.edit', type_='stack', id=s.id) }}">{{ s.name }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-sm-4">
+                <h2>Effect Groups</h2>
+                <a class="btn btn-primary" href="{{ url_for('.edit', type_='group') }}">New</a>
+                <ul class="list-group">
+                    {% for g in groups %}
+                        <li class="list-group-item">
+                            {{ g.color |lp_color }}
+                            <a href="{{ url_for('.edit', type_='group', id=g.id) }}">
+                                {{ g.name }}
+                            </a>
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            <div class="col-sm-4">
+                <h2>Effects</h2>
+                <a class="btn btn-primary" href="{{ url_for('.edit', type_='effect') }}">New</a>
+                <ul class="list-group">
+                    {% for e in effects %}
+                        <li class="list-group-item"><a href="{{ url_for('.edit', type_='effect', id=e.id) }}">{{ e.name }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+    </div>
+{% endblock %}

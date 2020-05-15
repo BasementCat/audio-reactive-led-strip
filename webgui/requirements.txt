@@ -1,3 +1,6 @@
 flask
-flask-socketio
-eventlet
+flask-bootstrap
+flask-wtf
+flask-sqlalchemy
+flask-migrate
+# TODO: add lp lib as req

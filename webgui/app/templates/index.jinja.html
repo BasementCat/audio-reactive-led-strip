@@ -1,0 +1,16 @@
+{% extends "base.jinja.html" %}
+
+{% block scripts %}
+    {{ super() }}
+    <script>start_ui();</script>
+{% endblock %}
+
+{% block content %}
+    <div class="container-fluid">
+        <div class="row-fluid">
+            <div class="col-sm-12 output-container top"></div>
+            <div class="col-sm-12 output-container middle"></div>
+            <div class="col-sm-12 output-container bottom"></div>
+        </div>
+    </div>
+{% endblock %}

@@ -29,6 +29,10 @@ class Output {
 
     monitor_event(event) {}
 
+    select_light(light) {}
+
+    deselect_light(light) {}
+
     render() {}
 
     destroy() {}
@@ -42,15 +46,31 @@ class TableRowOutput extends Output {
         this.tdmap = {};
         this.fields.forEach(n => {
             var td = document.createElement('td');
-            this.tdmap[n] = td;
+            var link = document.createElement('a');
+            this.tdmap[n] = td
             this.tr.appendChild(td);
         });
+        this.selected = false;
+    }
+
+    select_light(light) {
+        if (light === this.light)
+            this.selected = true;
+    }
+
+    deselect_light(light) {
+        if (light === this.light)
+            this.selected = false;
     }
 
     render() {
         this.fields.forEach(n => {
             this.tdmap[n].innerHTML = this.light[n] || this.light.state[n] || '';
         });
+        if (this.selected && !this.tr.classList.contains('selected'))
+            this.tr.classList.add('selected');
+        else if (!this.selected && this.tr.classList.contains('selected'))
+            this.tr.classList.remove('selected');
     }
 }
 
@@ -60,6 +80,10 @@ class TableOutput {
         this.table = document.createElement('table');
         this.thead = document.createElement('thead');
         this.tbody = document.createElement('tbody');
+
+        this.table.classList.add('props');
+        this.table.classList.add('table');
+        this.table.classList.add('table-striped');
 
         var headers = ['name', 'type', 'effects', 'state_effects'];
         lights.forEach(l => {
@@ -240,6 +264,14 @@ class Light {
         this.outputs.forEach(o => {o.monitor_event(event); o.render();});
     }
 
+    select() {
+        this.outputs.forEach(o => {o.select_light(this); o.render();})
+    }
+
+    deselect() {
+        this.outputs.forEach(o => {o.deselect_light(this); o.render();})
+    }
+
     destroy() {
         this.outputs.forEach(o => o.destroy());
     }
@@ -288,8 +320,13 @@ class AudioGraphOutput {
     }
 }
 
+
 var lights = {};
 var table_output, audio_graph_output;
+var client_id = null;
+var container_top = document.querySelector('.output-container.top');
+var container_middle = document.querySelector('.output-container.middle');
+var container_bottom = document.querySelector('.output-container.bottom');
 
 
 function reset_lights() {
@@ -298,43 +335,121 @@ function reset_lights() {
     table_output && table_output.destroy();
     audio_graph_output && audio_graph_output.destroy();
     table_output = audio_graph_output = null;
+    client_id = Math.floor(Math.random() * Math.floor(1048576)).toString();
 }
 
 
-var socket = io();
-socket.on('connect', function() {
-    reset_lights();
-});
-socket.on('MONITOR', function(d) {
-    d.args.forEach(event => {
-        if (event.op == 'STATE') {
-            if (!lights[event.name]) return;
-            lights[event.name].state = event.state;
-        } else if (event.op == 'EFFECT' || event.op == 'STATE_EFFECT') {
-            if (!lights[event.name]) return;
-            lights[event.name].monitor_event(event);
-        } else if (event.op == 'AUDIO') {
-            if (!audio_graph_output) audio_graph_output = new AudioGraphOutput(document.body);
-            audio_graph_output.update(event.state.bins);
-        } else {
-            console.log("mon %o", event);
+function poll() {
+    var buffer = '';
+    var req = new XMLHttpRequest();
+    req.open('GET', '/api/poll/' + client_id);
+    req.seenBytes = 0;
+
+    req.addEventListener('readystatechange', function() {
+        if (req.readyState == 3) {
+            buffer += req.responseText.substr(req.seenBytes);
+            req.seenBytes = req.responseText.length;
+
+            var full = buffer.substr(-1) == '\n';
+            var parts = buffer.split('\n');
+            if (full) {
+                buffer = '';
+                parts.pop();
+            } else {
+                buffer = parts.pop();
+            }
+
+            parts.forEach(part => {
+                try {
+                    var command = JSON.parse(part);
+                    switch (command.command) {
+                        case 'LIGHTS':
+                            command.args.forEach(light_data => {
+                                var light = new Light(light_data);
+                                if (typeof light.state.pan !== 'undefined')
+                                    light.add_output(new MovingHeadOutput(container_top, light))
+                                lights[light.name] = light;
+                            });
+                            table_output = new TableOutput(container_bottom, Object.entries(lights).map(v => v[1]));
+
+                            document.querySelector('#suspend').checked = command.kwargs.SUSPENDED;
+                            break;
+                        case 'MONITOR':
+                            command.args.forEach(event => {
+                                if (event.op == 'STATE') {
+                                    if (!lights[event.name]) return;
+                                    lights[event.name].state = event.state;
+                                } else if (event.op == 'EFFECT' || event.op == 'STATE_EFFECT') {
+                                    if (!lights[event.name]) return;
+                                    lights[event.name].monitor_event(event);
+                                } else if (event.op == 'AUDIO') {
+                                    if (!audio_graph_output) audio_graph_output = new AudioGraphOutput(container_bottom);
+                                    audio_graph_output.update(event.state.bins);
+                                } else {
+                                    console.log("mon %o", event);
+                                }
+                            });
+                            break;
+                        case 'C_SELECT':
+                            for (var k in lights) {
+                                lights[k].deselect();
+                            }
+                            var l = lights[command.args[0]];
+                            if (!l) return;
+                            l.select();
+                            break;
+                        case 'C_DESELECT':
+                            for (var k in lights) {
+                                lights[k].deselect();
+                            }
+                            break;
+                        case 'QUIT':
+                            reset_lights();
+                            break;
+                    }
+                } catch (e) {
+                    console.error(e);
+                }
+            });
         }
     });
-});
-socket.on('LIGHTS', function(d) {
-    d.args.forEach(light_data => {
-        var light = new Light(light_data);
-        light.add_output(new MovingHeadOutput(document.body, light))
-        lights[light.name] = light;
-    });
-    table_output = new TableOutput(document.body, Object.entries(lights).map(v => v[1]));
 
-    document.querySelector('#suspend').checked = d.kwargs.SUSPENDED;
-});
-socket.on('QUIT', function(d) {
+    req.addEventListener('load', function() {
+        window.setTimeout(poll, 0);
+    });
+
+    req.send();
+}
+
+
+function start_ui() {
     reset_lights();
-});
+    poll();
+}
 
 document.querySelector('#suspend').addEventListener('change', function(e) {
-    socket.emit('suspend', {args: [e.target.checked]});
+    var req = new XMLHttpRequest();
+    req.open('POST', '/api/send');
+    req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
+    req.send(JSON.stringify({command: 'suspend', args: [e.target.checked]}));
+});
+
+document.addEventListener('click', function(event) {
+    if (event.target.tagName != 'A' || !event.target.classList.contains('save-prop'))
+        return;
+
+    event.stopPropagation();
+    event.preventDefault();
+
+    let light = event.target.getAttribute('data-light');
+    let prop = event.target.getAttribute('data-prop');
+    let val = parseInt(event.target.parentNode.querySelector('span').innerText || '0');
+    let name = window.prompt("Effect name");
+    if (!name) return;
+    console.log("Save %s prop %s value %d", light, prop, val);
+
+    var req = new XMLHttpRequest();
+    req.open('POST', '/api/effect');
+    req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+    req.send("light=" + light + "&prop=" + prop + "&value=" + val.toString() + "&name=" + name);
 });
