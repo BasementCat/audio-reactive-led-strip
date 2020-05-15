@@ -346,6 +346,10 @@ class ControlForm {
         }
     }
 
+    set_property(prop) {
+        this.el_property.value = prop;
+    }
+
     clear() {
         this.els.forEach(n => {
             this['el_' + n].value = '';
@@ -446,6 +450,9 @@ function poll() {
                             break;
                         case 'C_FOCUS':
                             control_form.focus(command.args[0]);
+                            break;
+                        case 'C_PROPERTY':
+                            control_form.set_property(command.args[0])
                             break;
                         case 'QUIT':
                             reset_lights();

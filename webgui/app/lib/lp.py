@@ -388,6 +388,8 @@ class LightControlPage(NavigablePage):
         self._width = 4  # Existing controls
         self.light = light
 
+        self.record_focused = None
+
         if 'gobo' in light['enums']:
             colors = []
             values = []
@@ -439,6 +441,7 @@ class LightControlPage(NavigablePage):
 
     # Recording controls
     def record_focus(self, event, control):
+        self.record_focused = control
         network.send_to_client('C_FOCUS', control)
 
     def record_duration(self, event, value, unit):
@@ -454,6 +457,12 @@ class LightControlPage(NavigablePage):
     def on_start_recording(self, event):
         if event.value:
             event.pm.push_page(RecordControlPage(self))
+
+    def _check_record_focused(self, event, prop):
+        if event.value:
+            if self.record_focused == 'property':
+                network.send_to_client('C_PROPERTY', prop)
+                return True
 
     def _incr_decr_value(self, prop, event):
         if event.value:
@@ -487,39 +496,63 @@ class LightControlPage(NavigablePage):
             network.send_to_server('SET', self.light['name'], **{prop: event.attached_value})
 
     def on_pan(self, event):
+        if self._check_record_focused(event, 'pan'):
+            return
         self._incr_decr_value('pan', event)
 
     def on_tilt(self, event):
+        if self._check_record_focused(event, 'tilt'):
+            return
         self._incr_decr_value('tilt', event)
 
     def on_dim(self, event):
+        if self._check_record_focused(event, 'dim'):
+            return
         self._slider_value('dim', event)
 
     def on_strobe(self, event):
+        if self._check_record_focused(event, 'strobe'):
+            return
         self._slider_value('strobe', event)
 
     def on_gobo(self, event):
+        if self._check_record_focused(event, 'gobo'):
+            return
         self._enum_value('gobo', event)
 
     def on_color(self, event):
+        if self._check_record_focused(event, 'color'):
+            return
         self._enum_value('color', event)
 
     def on_red(self, event):
+        if self._check_record_focused(event, 'red'):
+            return
         self._slider_value('red', event)
 
     def on_green(self, event):
+        if self._check_record_focused(event, 'green'):
+            return
         self._slider_value('green', event)
 
     def on_blue(self, event):
+        if self._check_record_focused(event, 'blue'):
+            return
         self._slider_value('blue', event)
 
     def on_white(self, event):
+        if self._check_record_focused(event, 'white'):
+            return
         self._slider_value('white', event)
 
     def on_amber(self, event):
+        if self._check_record_focused(event, 'amber'):
+            return
         self._slider_value('amber', event)
 
     def on_uv(self, event):
+        if self._check_record_focused(event, 'uv'):
+            return
         self._slider_value('uv', event)
 
 
