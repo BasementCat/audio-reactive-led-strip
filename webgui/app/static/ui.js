@@ -329,6 +329,7 @@ class ControlForm {
         this.els.forEach(n => {
             this['el_' + n] = document.getElementById('cf-' + n);
         });
+        this.state_field_focused = null;
     }
 
     select(light) {
@@ -341,13 +342,60 @@ class ControlForm {
             this.els.forEach(n => {
                 this['el_' + n].blur();
             });
+            this.state_field_focused = null;
         } else {
             this['el_' + what].focus();
+            if (['start', 'end', 'done'].indexOf(what) > -1) {
+                this.state_field_focused = this['el_' + what];
+            } else {
+                this.state_field_focused = null;
+            }
         }
     }
 
     set_property(prop) {
         this.el_property.value = prop;
+    }
+
+    set_state(light, state) {
+        var prop = this.el_property.value;
+        if (this.state_field_focused && light == this.el_light.value && typeof state[prop] !== 'undefined') {
+            this.state_field_focused.value = state[prop];
+        }
+    }
+
+    set_duration(value, unit) {
+        this.el_duration.value = value + unit;
+    }
+
+    save() {
+        // Validate required properties
+        var ok = true;
+        if (!(this.el_light.value && this.el_property.value && this.el_duration.value)) {
+            ok = false;
+            alert("Light, property, and duration are required");
+        } else if (!(this.el_start.value || this.el_end.value)) {
+            ok = false;
+            alert("Start or end are required");
+        }
+        if (ok) {
+            var name = prompt("Enter a name for the effect");
+            // TODO: Clear on successful api call
+            if (name) {
+                var data = this.els.map(k => { return k + '=' + this['el_' + k].value; }).join('&');
+                data += '&name=' + name;
+                var req = new XMLHttpRequest();
+                req.open('POST', '/api/effect');
+                req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
+                req.send(data);
+            }
+        }
+
+        this.deselect(true);
+    }
+
+    cancel() {
+        this.deselect(true);
     }
 
     clear() {
@@ -356,9 +404,11 @@ class ControlForm {
         });
     }
 
-    deselect() {
+    deselect(no_clear) {
         this.form.style.display = 'none';
-        this.clear();
+        this.focus(null);
+        if (!no_clear)
+            this.clear();
     }
 }
 
@@ -422,6 +472,7 @@ function poll() {
                                 if (event.op == 'STATE') {
                                     if (!lights[event.name]) return;
                                     lights[event.name].state = event.state;
+                                    control_form.set_state(event.name, event.state);
                                 } else if (event.op == 'EFFECT' || event.op == 'STATE_EFFECT') {
                                     if (!lights[event.name]) return;
                                     lights[event.name].monitor_event(event);
@@ -452,7 +503,16 @@ function poll() {
                             control_form.focus(command.args[0]);
                             break;
                         case 'C_PROPERTY':
-                            control_form.set_property(command.args[0])
+                            control_form.set_property(command.args[0]);
+                            break;
+                        case 'C_DURATION':
+                            control_form.set_duration(command.args[0], command.args[1]);
+                            break;
+                        case 'C_SAVE':
+                            control_form.save();
+                            break;
+                        case 'C_CANCEL':
+                            control_form.cancel();
                             break;
                         case 'QUIT':
                             reset_lights();

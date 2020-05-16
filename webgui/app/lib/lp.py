@@ -278,7 +278,6 @@ class RecordControlPage(Page):
 
     def record_duration(self, event, value, unit):
         self.control_page.record_duration(event, value, unit)
-        # self.effect_item.set_state(event.lp, event.page, )
         event.pm.pop_to_page(self)
 
     def on_effect_item(self, event):
@@ -304,11 +303,12 @@ class RecordControlPage(Page):
 
     def on_save_recording(self, event):
         if event.value:
-            # TODO: notify the client to ask for a name, and do the save
+            self.control_page.record_save(event)
             self.on_stop_recording(event)
 
     def on_stop_recording(self, event):
         if event.value:
+            self.control_page.record_cancel(event)
             event.pm.pop_to_page(self.control_page)
 
 
@@ -445,8 +445,13 @@ class LightControlPage(NavigablePage):
         network.send_to_client('C_FOCUS', control)
 
     def record_duration(self, event, value, unit):
-        # TODO: send duration to client
-        pass
+        network.send_to_client('C_DURATION', value, unit)
+
+    def record_save(self, event):
+        network.send_to_client('C_SAVE')
+
+    def record_cancel(self, event):
+        network.send_to_client('C_CANCEL')
 
     # Button handlers
     def on_exit(self, event):
