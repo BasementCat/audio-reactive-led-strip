@@ -382,12 +382,18 @@ class ControlForm {
             var name = prompt("Enter a name for the effect");
             // TODO: Clear on successful api call
             if (name) {
-                var data = this.els.map(k => { return k + '=' + this['el_' + k].value; }).join('&');
-                data += '&name=' + name;
+                var data = {'name': name};
+                this.els.forEach(n => { data[n] = this['el_' + n].value; })
                 var req = new XMLHttpRequest();
+                req.addEventListener('load', function() {
+                    this.clear();
+                });
+                req.addEventListener('error', function() {
+                    alert("Error saving");
+                });
                 req.open('POST', '/api/effect');
-                req.setRequestHeader("Content-Type", "application/x-www-form-urlencoded");
-                req.send(data);
+                req.setRequestHeader("Content-Type", "application/json");
+                req.send(JSON.stringify(data));
             }
         }
 

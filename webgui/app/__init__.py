@@ -40,7 +40,7 @@ def create_app():
 
     def _lp_color(v):
         c, i = v.split(':', 1)
-        return Markup('<span class="lp-color" style="background-color: ' + Color.ALL_COLORS_HEX[c] + '">' + i + '</span>')
+        return Markup('<span class="lp-color" style="background-color: ' + Color.COLORS[c] + '">' + i + '</span>')
     app_obj.jinja_env.filters['lp_color'] = _lp_color
 
     from app.views import index as index_view

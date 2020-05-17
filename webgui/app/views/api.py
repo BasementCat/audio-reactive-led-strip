@@ -32,18 +32,14 @@ def api_send():
 
 @app.route('/effect', methods=['POST'])
 def api_effect():
-    # this one's a form... could be refactored
+    d = request.json
     db.session.add(Effect(
-        name=request.form['name'],
-        prop=request.form['prop'],
-        raw_duration='0s',
-        start=request.form['value']
+        name=d['name'],
+        prop=d['property'],
+        raw_duration=d['duration'],
+        start=d['start'],
+        end=d['end'],
+        done=d['done']
     ))
-    db.session.commit();
-    id = db.Column(db.Integer(), primary_key=True, autoincrement=True)
-    name = db.Column(db.Unicode(64), nullable=False, index=True)
-    prop = db.Column(db.UnicodeText(), nullable=False)
-    raw_duration = db.Column(db.UnicodeText())
-    start = db.Column(db.UnicodeText(), nullable=False)
-    end = db.Column(db.UnicodeText())
-    done = db.Column(db.UnicodeText())
+    db.session.commit()
+    return jsonify({'result': 'OK'})
