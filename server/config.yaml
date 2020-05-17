@@ -87,7 +87,7 @@ OUTPUTS:
             # - {trigger: "frequency", bins: [[0, 23]], function: "tilt", threshold: 0.6}
 
         LINK:
-            - {NAME: "front_2", INVERT: ["pan"]}
+            - {NAME: "front_2"}
     -
         NAME: front_2
         DEVICE: TomshineMovingHead6in1

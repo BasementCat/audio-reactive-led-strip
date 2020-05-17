@@ -6,17 +6,28 @@ import select
 import re
 import multiprocessing
 from multiprocessing.queues import Empty
+from threading import Lock
 import os
 import signal
 
 import numpy as np
-import pyaudio
 
 from app import Task, NoData
 from app.lib.misc import FPSCounter
 
 
 logger = logging.getLogger(__name__)
+
+# Audio libs
+try:
+    import pyaudio
+except ImportError:
+    logger.info("PyAudio is not installed")
+
+try:
+    import alsaaudio
+except ImportError:
+    logger.info("PyAlsaAudio is not installed")
 
 
 class Input(Task):
@@ -26,16 +37,7 @@ class Input(Task):
         self.frames_per_buffer = int(self.config['MIC_RATE'] / self.config['FPS'])
 
 
-def get_device_index(in_device, pa=None):
-    pa = pa or pyaudio.PyAudio()
-
-    valid_input_devices = {}
-
-    for i in range(pa.get_device_count()):
-        info = pa.get_device_info_by_index(i)
-        if info.get('maxInputChannels') > 0:
-            valid_input_devices[i] = info.get('name')
-
+def _get_device_index(valid_input_devices, in_device):
     device_num = None
     try:
         device = int(in_device)
@@ -61,11 +63,22 @@ def get_device_index(in_device, pa=None):
     return device_num
 
 
-def device_input_process(wd, device, mic_rate, frames_per_buffer, queue, stop_event):
-    import numpy as np
-    import pyaudio
+def _pa_get_device_index(in_device, pa=None):
+    pa = pa or pyaudio.PyAudio()
+
+    valid_input_devices = {}
+
+    for i in range(pa.get_device_count()):
+        info = pa.get_device_info_by_index(i)
+        if info.get('maxInputChannels') > 0:
+            valid_input_devices[i] = info.get('name')
+
+    return _get_device_index(valid_input_devices, in_device)
+
+
+def _pa_device_input_process(wd, device, mic_rate, frames_per_buffer, queue, stop_event):
     pa = pyaudio.PyAudio()
-    device_num = get_device_index(device, pa=pa)
+    device_num = _pa_get_device_index(device, pa=pa)
     stream = pa.open(format=pyaudio.paInt16,
                     channels=1,
                     rate=mic_rate,
@@ -93,12 +106,12 @@ def device_input_process(wd, device, mic_rate, frames_per_buffer, queue, stop_ev
         pa.terminate()
 
 
-class DeviceInput(Input):
+class PyAudioDeviceInput(Input):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Validate that the configured input device is ok
         # Actually can't do validation here, breaks pyaudio w/ multiprocessing
-        # get_device_index(self.config['INPUT_DEVICE'])
+        # _pa_get_device_index(self.config['INPUT_DEVICE'])
         self.process = None
         self.watchdog = multiprocessing.Value('d', 0.0)
         self.stop_event = multiprocessing.Event()
@@ -116,7 +129,7 @@ class DeviceInput(Input):
                 logger.error("Process is not alive")
 
         self.watchdog.value = time.time() + 0.5
-        self.process = multiprocessing.Process(target=device_input_process, args=(self.watchdog, self.config['INPUT_DEVICE'], self.config['MIC_RATE'], self.frames_per_buffer, self.queue, self.stop_event))
+        self.process = multiprocessing.Process(target=_pa_device_input_process, args=(self.watchdog, self.config['INPUT_DEVICE'], self.config['MIC_RATE'], self.frames_per_buffer, self.queue, self.stop_event))
         self.process.start()
 
     def start(self, data):
@@ -137,3 +150,42 @@ class DeviceInput(Input):
                 data['raw_audio'] = raw_data
         except Empty:
             raise NoData()
+
+
+def _alsa_get_device(in_device):
+    devices = dict(enumerate(alsaaudio.pcms(alsaaudio.PCM_CAPTURE)))
+    return devices[_get_device_index(devices, in_device)]
+
+
+class AlsaDeviceInput(Input):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.buffer = b''
+        self.device = alsaaudio.PCM(alsaaudio.PCM_CAPTURE, alsaaudio.PCM_NONBLOCK, device=_alsa_get_device(self.config['INPUT_DEVICE']))
+        # Set attributes: Mono, 44100 Hz, 16 bit little endian samples
+        self.device.setchannels(1)
+        self.device.setrate(self.config['MIC_RATE'])
+        self.device.setformat(alsaaudio.PCM_FORMAT_S16_LE)
+        self.device.setperiodsize(self.frames_per_buffer)
+
+    def start(self, data):
+        pass
+
+    def stop(self):
+        pass
+
+    def run(self, data):
+        num_frames, frame_data = self.device.read()
+        if num_frames:
+            self.buffer += frame_data
+
+        offset = self.frames_per_buffer * 2
+        if len(self.buffer) < offset:
+            raise NoData()
+
+        with self.fps:
+            raw_data = self.buffer[:offset]
+            self.buffer = self.buffer[offset:]
+            raw_data = np.frombuffer(raw_data, dtype=np.int16)
+            raw_data = raw_data.astype(np.float32)
+            data['raw_audio'] = raw_data

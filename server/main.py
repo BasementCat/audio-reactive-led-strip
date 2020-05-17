@@ -6,7 +6,7 @@ import logging
 from app import NoData
 from app.lib.config import parse_config
 from app.lib.network import Network, NetworkTask
-from app.inputs import DeviceInput
+from app.inputs import PyAudioDeviceInput, AlsaDeviceInput
 from app.processors import SmoothingProcessor, BeatProcessor, PitchProcessor, IdleProcessor
 from app.outputs.dmxfixtures.gobo import UKingGobo, UnnamedGobo
 from app.outputs.dmxfixtures.movinghead import TomshineMovingHead6in1
@@ -43,7 +43,7 @@ def run(args):
             raise ValueError(f"Invalid manual control: {args.manual}")
     else:
         tasks = [
-            DeviceInput('audioinput', config),
+            globals()[config.get('INPUT_TYPE', 'Alsa') + 'DeviceInput']('audioinput', config),
             SmoothingProcessor('smoothing', config),
             BeatProcessor('beat', config),
             PitchProcessor('pitch', config),
