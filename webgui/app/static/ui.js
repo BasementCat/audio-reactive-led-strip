@@ -368,6 +368,17 @@ class ControlForm {
         this.el_duration.value = value + unit;
     }
 
+    set_value(value) {
+        if (this.state_field_focused) {
+            if (value == 'state') {
+                // TODO: get the actual state
+                this.state_field_focused.value = '';
+            } else {
+                this.state_field_focused.value = value;
+            }
+        }
+    }
+
     save() {
         // Validate required properties
         var ok = true;
@@ -513,6 +524,9 @@ function poll() {
                             break;
                         case 'C_DURATION':
                             control_form.set_duration(command.args[0], command.args[1]);
+                            break;
+                        case 'C_SET_VALUE':
+                            control_form.set_value(command.args[0]);
                             break;
                         case 'C_SAVE':
                             control_form.save();

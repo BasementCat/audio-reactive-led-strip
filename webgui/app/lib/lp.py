@@ -269,6 +269,7 @@ class RecordControlPage(Page):
             ('RIGHT', 'SOLO'),  # Property
         ))
     )
+    toggle_current_random = Toggle(colors=[Color('ORANGE'), Color('BLUE'), Color('PINK')], states=3, buttons=ButtonGroup('RIGHT', 'MUTE'))
     stop_recording = Momentary(on_color=Color('GREEN'), off_color=Color('RED'), buttons=ButtonGroup('RIGHT', 'STOP'))
     save_recording = Momentary(on_color=Color('WHITE'), off_color=Color('GREEN', pulse=True), buttons=ButtonGroup('RIGHT', 'RECORDARM'))
 
@@ -300,6 +301,10 @@ class RecordControlPage(Page):
                     event.pm.push_page(RecordDurationPage(self))
             else:
                 self.control_page.record_focus(event, None)
+
+    def on_toggle_current_random(self, event):
+        if event.value:
+            self.control_page.record_toggle_current_random(event, ['state', 'current', 'random'][event.control_value])
 
     def on_save_recording(self, event):
         if event.value:
@@ -446,6 +451,10 @@ class LightControlPage(NavigablePage):
 
     def record_duration(self, event, value, unit):
         network.send_to_client('C_DURATION', value, unit)
+
+    def record_toggle_current_random(self, event, value):
+        if self.record_focused in ('start', 'end'):
+            network.send_to_client('C_SET_VALUE', value)
 
     def record_save(self, event):
         network.send_to_client('C_SAVE')
