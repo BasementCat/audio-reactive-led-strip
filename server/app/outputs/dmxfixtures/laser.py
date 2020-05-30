@@ -202,22 +202,33 @@ class Generic4ColorLaser(PatternLaserMixin, BasicDMX):
         }
     }
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.xmin, self.ymin, self.xmax, self.ymax = self.output_config.get('RESTRICT_POSITION', [0, 0, 255, 255])
+
     def get_state_effects(self):
         # return [DeadCoastingStateEffect(), IdleCoastingStateEffect(), IdleFadeoutStateEffect()]
         return [DeadPatternStateEffect(), IdleOffStateEffect()]
 
-    def _map_full_range(self, trigger, value, threshold):
+    def _map_full_range(self, trigger, value, threshold, cap=None):
         if value >= threshold:
-            return random.randint(0, 255)
+            # Could do an infinite loop here but it's better to restrict retries
+            for _ in range(25):
+                out = random.randint(0, 255)
+                if cap and (out < cap[0] or out > cap[1]):
+                    continue
+                return out
+            # If we couldn't get something in the range, don't alter the state
+            return None
 
     def map_pattern(self, trigger, value, threshold):
         return self._map_full_range(trigger, value, threshold)
 
     def map_x(self, trigger, value, threshold):
-        return self._map_full_range(trigger, value, threshold)
+        return self._map_full_range(trigger, value, threshold, cap=(self.xmin, self.xmax))
 
     def map_y(self, trigger, value, threshold):
-        return self._map_full_range(trigger, value, threshold)
+        return self._map_full_range(trigger, value, threshold, cap=(self.ymin, self.ymax))
 
     def map_pattern_size(self, trigger, value, threshold):
         shrink = True

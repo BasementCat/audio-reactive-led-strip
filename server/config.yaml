@@ -105,6 +105,7 @@ OUTPUTS:
             # - {trigger: "frequency", bins: [[0, 2]], function: "pattern_size", threshold: 0.4}
             # - {trigger: "frequency", bins: [[12, 18]], function: "pattern_size", threshold: -0.4}
             - {trigger: "beat", function: "pattern_size"}
+        RESTRICT_POSITION: [0, 0, 255, 255]  # xmin, ymin, xmax, ymax
 
     -
         NAME: ledstrip
