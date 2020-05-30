@@ -35,6 +35,8 @@ class NetworkThread(Thread):
         self.lights = []
         self.lock = threading.Lock()
         self.client_queues = {}
+        self.host = 'localhost'
+        self.port = 37737
         self.connect()
 
     def send_to_server(self, command, *args, **kwargs):
@@ -77,6 +79,11 @@ class NetworkThread(Thread):
     def get_lights(self):
         return self.lights
 
+    def configure(self, app_config):
+        self.host = app_config.get('LIGHT_SERVER_HOST') or self.host
+        self.port = app_config.get('LIGHT_SERVER_PORT') or self.port
+        self.connect()
+
     def connect(self):
         if self.sock:
             self.sock.close()
@@ -85,8 +92,7 @@ class NetworkThread(Thread):
 
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-            # TODO: configurable
-            self.sock.connect(('localhost', 37737))
+            self.sock.connect((self.host, self.port))
             return True
         except:
             logger.error("Failed to connect to %s:%d", host, port, exc_info=True)

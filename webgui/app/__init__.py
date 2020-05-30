@@ -29,6 +29,13 @@ def create_app():
     app_obj.config['SECRET_KEY'] = 'secret!'
     app_obj.config['TEMPLATES_AUTO_RELOAD'] = True
     app_obj.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
+    app_obj.config['LIGHT_SERVER_HOST'] = 'localhost'
+    app_obj.config['LIGHT_SERVER_PORT'] = 37737
+
+    if os.path.exists('./config.json'):
+        with open('./config.json', 'r') as fp:
+            app_obj.config.update(json.load(fp))
+    network.configure(app_obj.config)
 
     Bootstrap(app_obj)
     db.init_app(app_obj)
