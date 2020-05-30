@@ -322,7 +322,12 @@ class LightControlPage(NavigablePage):
     def groups(self):
         return super().groups + ['RIGHT', 'GRID', 'MODE']
 
-    _movement_colors = [
+    # Misc
+    exit = Momentary(off_color=Color('RED'), buttons=ButtonGroup('MODE', 'MIXER'))
+    # Recording controls
+    start_recording = Momentary(on_color=Color('WHITE'), off_color=Color('GREEN'), buttons=ButtonGroup('RIGHT', 'RECORDARM'))
+
+    MOVEMENT_COLORS = [
         Color('GREEN', intensity=4),
         Color('GREEN', intensity=2),
         Color('GREEN', intensity=1),
@@ -332,16 +337,6 @@ class LightControlPage(NavigablePage):
         Color('GREEN', intensity=2),
         Color('GREEN', intensity=4),
     ]
-
-    # Base light controls
-    pan = Momentary(on_color=Color('PINK'), off_color=_movement_colors, buttons=ButtonGroup(0, 0, 0, 7))
-    tilt = Momentary(on_color=Color('PINK'), off_color=_movement_colors, buttons=ButtonGroup(1, 0, 1, 7))
-    dim = Slider(2, 8, on_colors=[Color('WHITE', intensity=x) for x in (4, 3, 2, 1)], color_mode=Slider.CM_GROUP)
-    strobe = Slider(3, 8, on_colors=[Color('RED')] + [Color('YELLOW') for _ in range(7)], color_mode=Slider.CM_GROUP)
-    # Misc
-    exit = Momentary(off_color=Color('RED'), buttons=ButtonGroup('MODE', 'MIXER'))
-    # Recording controls
-    start_recording = Momentary(on_color=Color('WHITE'), off_color=Color('GREEN'), buttons=ButtonGroup('RIGHT', 'RECORDARM'))
 
     GOBO_COLORS = {
         'none': ('WHITE', False),
@@ -387,14 +382,42 @@ class LightControlPage(NavigablePage):
         'yellow_blue': ('YELLOW','BLUE'),
     }
 
+    MODE_COLORS = {
+        # Lasers, etc
+        'off': ('RED', False),
+        'static': ('CYAN1', False),
+        'dynamic': ('CYAN1', 'BLUE'),
+        'sound': ('BLUE', 'OFF'),
+        'auto': ('GREEN', 'OFF'),
+    }
+
 
     def __init__(self, light, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self._width = 4  # Existing controls
+        self._main_controls_x = 0
+        self._sub_controls_x = 0
         self.light = light
 
         self.record_focused = None
 
+        # Moving head lights
+        if 'pan' in light['functions']:
+            self.pan = Momentary(on_color=Color('PINK'), off_color=self.MOVEMENT_COLORS, buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x, 7))
+            self._main_controls_x += 1
+
+        if 'tilt' in light['functions']:
+            self.tilt = Momentary(on_color=Color('PINK'), off_color=self.MOVEMENT_COLORS, buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x, 7))
+            self._main_controls_x += 1
+
+        if 'dim' in light['functions']:
+            self.dim = Slider(self._main_controls_x, 8, on_colors=[Color('WHITE', intensity=x) for x in (4, 3, 2, 1)], color_mode=Slider.CM_GROUP)
+            self._main_controls_x += 1
+
+        if 'strobe' in light['functions']:
+            self.strobe = Slider(self._main_controls_x, 8, on_colors=[Color('RED')] + [Color('YELLOW') for _ in range(7)], color_mode=Slider.CM_GROUP)
+            self._main_controls_x += 1
+
+        # Gobos
         if 'gobo' in light['enums']:
             colors = []
             values = []
@@ -408,10 +431,11 @@ class LightControlPage(NavigablePage):
                 colors=ColorMap(colors),
                 value_map=ButtonMap(values),
                 mutex=True,
-                buttons=ButtonGroup(self._width, 0, self._width + num_cols - 1, 8)
+                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 8)
             )
-            self._width += num_cols
+            self._main_controls_x += num_cols
 
+        # Static colors
         if 'color' in light['enums']:
             colors = []
             values = []
@@ -425,24 +449,76 @@ class LightControlPage(NavigablePage):
                 colors=ColorMap(colors),
                 value_map=ButtonMap(values),
                 mutex=True,
-                buttons=ButtonGroup(self._width, 0, self._width + num_cols - 1, 8)
+                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 8)
             )
-            self._width += num_cols
+            self._main_controls_x += num_cols
 
+        # RGB, etc
         for prop, c in (('red', 'RED'), ('green', 'GREEN'), ('blue', 'BLUE'), ('white', 'WHITE'), ('amber', 'YELLOW'), ('uv', 'PURPLE')):
             if prop in light['functions']:
                 setattr(self, prop, Slider(
-                    self._width,
+                    self._main_controls_x,
                     8,
                     on_colors=Color(c)
                 ))
-                self._width += 1
+                self._main_controls_x += 1
+
+        # Lasers
+        if 'x' in light['functions']:
+            self.x = Momentary(on_color=Color('PINK'), off_color=self.MOVEMENT_COLORS, buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x, 7))
+            self._main_controls_x += 1
+
+        if 'y' in light['functions']:
+            self.y = Momentary(on_color=Color('PINK'), off_color=self.MOVEMENT_COLORS, buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x, 7))
+            self._main_controls_x += 1
+
+        if 'mode' in light['enums']:
+            colors = []
+            values = []
+            for k, v in self.MODE_COLORS.items():
+                e = light['enums']['mode'].get(k)
+                if e:
+                    colors.append([Color(v[0], flash=v[1]), Color(v[0], pulse=True)])
+                    values.append(e[0])
+            num_cols = math.ceil(len(colors) / 8)
+            self.mode = Toggle(
+                colors=ColorMap(colors),
+                value_map=ButtonMap(values),
+                mutex=True,
+                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 8)
+            )
+            self._main_controls_x += num_cols
+
+        if 'scan_speed' in light['functions']:
+            self.scan_speed = Slider(self._main_controls_x, 8, on_colors=[Color('BLUE', intensity=x) for x in (4, 3, 2, 1)], color_mode=Slider.CM_GROUP)
+            self._main_controls_x += 1
+
+        if 'pattern_speed' in light['functions']:
+            self.pattern_speed = Slider(self._main_controls_x, 8, on_colors=[Color('WHITE', intensity=x) for x in (4, 3, 2, 1)], color_mode=Slider.CM_GROUP)
+            self._main_controls_x += 1
+
+        if 'pattern_size' in light['functions']:
+            self.pattern_size = Slider(self._main_controls_x, 8, on_colors=[Color('GREEN', intensity=x) for x in (4, 3, 2, 1)], color_mode=Slider.CM_GROUP)
+            self._main_controls_x += 1
+
+        # Patterns might be very large
+        if 'pattern' in light['functions'] and ('pattern_static' in light['enums'] or 'pattern_dynamic' in light['enums']):
+            # This is making some assumptions that static/dynamic pattern count is the same, as are the offsets
+            # Currently this is true
+            num_cols = math.ceil(len(light['enums']['pattern_static']) / 8)
+            self.pattern = Toggle(
+                colors=ColorMap([[Color('ORANGE'), Color('ORANGE', pulse=True)] for _ in range(len(light['enums']['pattern_static']))]),
+                value_map=ButtonMap([e[0] for e in light['enums']['pattern_static'].values()]),
+                mutex=True,
+                buttons=ButtonGroup(self._sub_controls_x, 8, self._sub_controls_x + num_cols, 16)
+            )
+            self._sub_controls_x += num_cols
 
         network.send_to_client('C_SELECT', light['name'])
 
     @property
     def size(self):
-        return (self._width, 8)
+        return (max(self._main_controls_x, self._sub_controls_x), 16 if self._sub_controls_x else 8)
 
     # Recording controls
     def record_focus(self, event, control):
@@ -569,6 +645,41 @@ class LightControlPage(NavigablePage):
             return
         self._slider_value('uv', event)
 
+    def on_x(self, event):
+        if self._check_record_focused(event, 'x'):
+            return
+        self._incr_decr_value('x', event)
+
+    def on_y(self, event):
+        if self._check_record_focused(event, 'y'):
+            return
+        self._incr_decr_value('y', event)
+
+    def on_mode(self, event):
+        if self._check_record_focused(event, 'mode'):
+            return
+        self._enum_value('mode', event)
+
+    def on_scan_speed(self, event):
+        if self._check_record_focused(event, 'scan_speed'):
+            return
+        self._slider_value('scan_speed', event)
+
+    def on_pattern_speed(self, event):
+        if self._check_record_focused(event, 'pattern_speed'):
+            return
+        self._slider_value('pattern_speed', event)
+
+    def on_pattern_size(self, event):
+        if self._check_record_focused(event, 'pattern_size'):
+            return
+        self._slider_value('pattern_size', event)
+
+    def on_pattern(self, event):
+        if self._check_record_focused(event, 'pattern'):
+            return
+        self._enum_value('pattern', event)
+
 
 pages = {
     'mode': ModePage(),
@@ -628,7 +739,8 @@ class LPControlThread(Thread):
         api_lights = network.get_lights()
         logger.debug("Found %d lights", len(api_lights))
         for api_light in api_lights:
-            if not any((k in api_light.get('functions', []) for k in ('pan', 'tilt', 'color', 'gobo', 'strobe', 'dim'))):
+            # hax!
+            if not any((k in api_light.get('functions', []) for k in ('pan', 'tilt', 'color', 'gobo', 'strobe', 'dim', 'x', 'y'))):
                 continue
 
             db_light = Light.query.filter(Light.name == api_light['name']).first()

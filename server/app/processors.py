@@ -44,7 +44,7 @@ class SmoothingProcessor(Processor):
             vol = np.max(np.abs(y_data))
             if vol < self.config['MIN_VOLUME_THRESHOLD']:
                 # print('No audio input. Volume below threshold. Volume:', vol)
-                output = np.tile(0, self.config['N_FFT_BINS'])
+                output = np.tile(0, self.config['N_FFT_BINS']).astype(float)
             else:
                 # Transform audio input into the frequency domain
                 N = len(y_data)
