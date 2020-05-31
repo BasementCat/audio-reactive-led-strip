@@ -27,6 +27,10 @@ class SmoothingProcessor(Processor):
         self.mel_smoothing = ExpFilter(np.tile(1e-1, self.config['N_FFT_BINS']),
                          alpha_decay=0.5, alpha_rise=0.99)
 
+        self.net_send_samples = []
+        self.net_send_rate = 0.05
+        self.net_send_time = time.time()
+
     def run(self, data):
         audio_samples = data.get('raw_audio')
         if audio_samples is None:
@@ -68,7 +72,12 @@ class SmoothingProcessor(Processor):
             if output is not None:
                 data['audio'] = output
 
-            send_monitor(None, 'AUDIO', bins=list(output))
+            self.net_send_samples.append(list(output))
+            if time.time() - self.net_send_time >= self.net_send_rate:
+                self.net_send_time = time.time()
+                net_data = [sum((self.net_send_samples[i][b] for i in range(len(self.net_send_samples)))) / len(self.net_send_samples) for b in range(len(self.net_send_samples[0]))]
+                send_monitor(None, 'AUDIO', bins=net_data)
+                self.net_send_samples = []
 
 
 class BeatProcessor(Processor):
