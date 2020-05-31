@@ -3,6 +3,7 @@ import logging
 import threading
 import random
 import math
+import copy
 
 # from launchpad import Launchpad
 # from launchpad.colors import Color
@@ -19,7 +20,7 @@ logger = logging.getLogger(__name__)
 lp_lock = threading.Lock()
 lp_thread = None
 db = None
-Light = None
+# Light = None
 network = None
 
 
@@ -98,8 +99,9 @@ class LightSelectPage(Page):
         self.mode = None
         self.selected_light = None
 
-    def add_light(self, position, color, data):
+    def add_light(self, light):
         is_new = False
+        position = light.get('pos')
         if position is None:
             is_new = True
 
@@ -110,10 +112,11 @@ class LightSelectPage(Page):
             if not valid_positions:
                 raise RuntimeError("No empty position for new light")
             position = valid_positions[0]
+        position = tuple(position)
 
-        self.light_select.off_color[('GRID', position)] = Color(color)
+        self.light_select.off_color[('GRID', position)] = Color(light['color'])
         self.light_select.on_color[('GRID', position)] = Color('GREEN', pulse=True)
-        self.light_select.value_map[('GRID', position)] = data
+        self.light_select.value_map[('GRID', position)] = light
 
         if is_new:
             return position
@@ -144,11 +147,11 @@ class LightSelectPage(Page):
                 else:
                     if event.attached_value:
                         # A light is already here, reset the color and deselect
-                        self.light_select.off_color[('GRID', self.selected_light['pos'])] = Color(self.selected_light['color'])
+                        self.light_select.off_color[('GRID', tuple(self.selected_light['pos']))] = Color(self.selected_light['color'])
                         self.selected_light = None
                     else:
                         # Attempt to move the light to the new position
-                        old_pos = self.selected_light['pos']
+                        old_pos = tuple(self.selected_light['pos'])
                         new_pos = event.button
                         self.light_select.off_color[('GRID', old_pos)] = Color('OFF')
                         self.light_select.on_color[('GRID', old_pos)] = Color('OFF')
@@ -156,19 +159,19 @@ class LightSelectPage(Page):
                         self.light_select.on_color[('GRID', new_pos)] = Color('GREEN', pulse=True)
                         self.light_select.value_map[('GRID', new_pos)] = self.light_select.value_map.pop(('GRID', old_pos))
                         self.selected_light['pos'] = new_pos
-                        dbl = Light.query.filter(Light.name == self.selected_light['name']).first()
-                        dbl.x_pos, dbl.y_pos = new_pos
-                        db.session.commit()
+                        with db:
+                            self.selected_light['pos'] = new_pos
+                            db.save()
                         self.selected_light = None
             elif self.mode == 'color':
                 if event.attached_value:
                     self.selected_light = event.attached_value
 
                     def _select_color(event, color):
-                        dbl = Light.query.filter(Light.name == self.selected_light['name']).first()
-                        self.selected_light['color'] = dbl.color = color
-                        db.session.commit()
-                        self.light_select.off_color[('GRID', self.selected_light['pos'])] = Color(color)
+                        with db:
+                            self.selected_light['color'] = color
+                            db.save()
+                        self.light_select.off_color[('GRID', tuple(self.selected_light['pos']))] = Color(color)
                         event.pm.pop_page()
                         self.selected_light = None
 
@@ -714,19 +717,16 @@ class LPControlThread(Thread):
                         break
 
     def run(self):
-        global db, Light, network
+        global db, network
         if lp_thread is not self:
             return
-        from app import create_app, db as db_
-        from app.lib.models import Light as Light_
-        from app import network as network_
+        from app import database as db_
         db = db_
-        Light = Light_
+        from app import network as network_
         network = network_
-        with create_app().app_context():
-            super().run()
-            if self.lp:
-                self.lp.reset()
+        super().run()
+        if self.lp:
+            self.lp.reset()
 
     def loop(self):
         self.connect(wait=True)
@@ -743,434 +743,16 @@ class LPControlThread(Thread):
             if not any((k in api_light.get('functions', []) for k in ('pan', 'tilt', 'color', 'gobo', 'strobe', 'dim', 'x', 'y'))):
                 continue
 
-            db_light = Light.query.filter(Light.name == api_light['name']).first()
-            if db_light:
-                pos = (db_light.x_pos, db_light.y_pos)
-            if not db_light:
-                db_light = Light(name=api_light['name'], color='WHITE')
-                pos = None
+            with db:
+                db_light = db['lights'].get(api_light['name'])
+                if db_light:
+                    db_light.update(copy.deepcopy(api_light))
+                else:
+                    db_light = copy.deepcopy(api_light)
+                    db_light['color'] = 'WHITE'
+                    db['lights'][db_light['name']] = db_light
 
-            data = dict(api_light, pos=pos, color=db_light.color)
-            pos = pages['light_select'].add_light(pos, db_light.color, data)
-            if pos:
-                data['pos'] = pos
-                db_light.x_pos, db_light.y_pos = pos
-                db.session.add(db_light)
-                db.session.commit()
-
-
-# [{'enums': {'color': {'blue': [40, 49],
-#                       'blue_green': [100, 109],
-#                       'cyan': [30, 39],
-#                       'cyan_blue': [110, 119],
-#                       'green': [50, 59],
-#                       'green_pink': [90, 99],
-#                       'orange': [20, 29],
-#                       'orange_cyan': [120, 129],
-#                       'pink': [60, 69],
-#                       'pink_red': [80, 89],
-#                       'red': [70, 79],
-#                       'white': [0, 9],
-#                       'yellow': [10, 19],
-#                       'yellow_orange': [130, 139]},
-#             'gobo': {'3_spot_circle': [24, 31],
-#                      'broken_circle': [8, 15],
-#                      'burst': [16, 23],
-#                      'dither_3_spot_circle': [88, 95],
-#                      'dither_broken_circle': [72, 79],
-#                      'dither_burst': [80, 87],
-#                      'dither_droplets': [104, 111],
-#                      'dither_none': [64, 71],
-#                      'dither_square_spots': [96, 103],
-#                      'dither_stripes': [120, 127],
-#                      'dither_swirl': [112, 119],
-#                      'droplets': [40, 47],
-#                      'none': [0, 7],
-#                      'square_spots': [32, 39],
-#                      'stripes': [56, 63],
-#                      'swirl': [48, 55]}},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'color',
-#                 'gobo',
-#                 'strobe',
-#                 'dim',
-#                 'speed',
-#                 'mode',
-#                 'dim_mode'],
-#   'name': 'back_1',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'color': 9,
-#             'dim': 255,
-#             'dim_mode': 0,
-#             'gobo': 109,
-#             'mode': 0,
-#             'pan': 44,
-#             'pan_fine': 0,
-#             'speed': 255,
-#             'strobe': 255,
-#             'tilt': 54,
-#             'tilt_fine': 0},
-#   'type': 'UnnamedGobo'},
-#  {'enums': {'color': {'blue': [40, 49],
-#                       'blue_green': [100, 109],
-#                       /home/alec/Projects/audio-reactive-led-strip/webgui/venv/lib/python3.6/site-packages/flask_sqlalchemy/__init__.py:835: FSADeprecationWarning: SQLALCHEMY_TRACK_MODIFICATIONS adds significant overhead and will be disabled by default in the future.  Set it to True or False to suppress this warning.
-#   'SQLALCHEMY_TRACK_MODIFICATIONS adds significant overhead and '
-# 'cyan': [30, 39],
-#                       'cyan_blue': [110, 119],
-#                       'green': [50, 59],
-#                       'green_pink': [90, 99],
-#                       'orange': [20, 29],
-#                       'orange_cyan': [120, 129],
-#                       'pink': [60, 69],
-#                       'pink_red': [80, 89],
-#                       'red': [70, 79],
-#                       'white': [0, 9],
-#                       'yellow': [10, 19],
-#                       'yellow_orange': [130, 139]},
-#             'gobo': {'3_spot_circle': [24, 31],
-#                      'broken_circle': [8, 15],
-#                      'burst': [16, 23],
-#                      'dither_3_spot_circle': [88, 95],
-#                      'dither_broken_circle': [72, 79],
-#                      'dither_burst': [80, 87],
-#                      'dither_droplets': [104, 111],
-#                      'dither_none': [64, 71],
-#                      'dither_square_spots': [96, 103],
-#                      'dither_stripes': [120, 127],
-#                      'dither_swirl': [112, 119],
-#                      'droplets': [40, 47],
-#                      'none': [0, 7],
-#                      'square_spots': [32, 39],
-#                      'stripes': [56, 63],
-#                      'swirl': [48, 55]}},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'color',
-#                 'gobo',
-#                 'strobe',
-#                 'dim',
-#                 'speed',
-#                 'mode',
-#                 'dim_mode'],
-#   'name': 'back_2',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'color': 103,
-#             'dim': 255,
-#             'dim_mode': 0,
-#             'gobo': 24,
-#             'mode': 0,
-#             'pan': 183,
-#             'pan_fine': 0,
-#             'speed': 255,
-#             'strobe': 255,
-#             'tilt': 25,
-#             'tilt_fine': 0},
-#   'type': 'UnnamedGobo'},
-#  {'enums': {'color': {'blue': [30, 39],
-#                       'blue_green': [120, 127],
-#                       'cyan': [60, 69],
-#                       'cyan_orange': [90, 99],
-#                       'green': [20, 29],
-#                       'orange': [50, 59],
-#                       'orange_yellow': [100, 109],
-#                       'pink': [70, 79],
-#                       'pink_cyan': [80, 89],
-#                       'red': [10, 19],
-#                       'white': [0, 9],
-#                       'yellow': [40, 49],
-#                       'yellow_blue': [110, 119]},
-#             'gobo': {'3_spot_circle': [24, 31],
-#                      'broken_circle': [8, 15],
-#                      'burst': [16, 23],
-#                      'dither_3_spot_circle': [88, 95],
-#                      'dither_broken_circle': [72, 79],
-#                      'dither_burst': [80, 87],
-#                      'dither_droplets': [104, 111],
-#                      'dither_none': [64, 71],
-#                      'dither_square_spots': [96, 103],
-#                      'dither_stripes': [120, 127],
-#                      'dither_swirl': [112, 119],
-#                      'droplets': [40, 47],
-#                      'none': [0, 7],
-#                      'square_spots': [32, 39],
-#                      'stripes': [56, 63],
-#                      'swirl': [48, 55]}},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'color',
-#                 'gobo',
-#                 'strobe',
-#                 'dim',
-#                 'speed',
-#                 'mode',
-#                 'dim_mode'],
-#   'name': 'mid_1',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'color': 9,
-#             'dim': 255,
-#             'dim_mode': 0,
-#             'gobo': 109,
-#             'mode': 0,
-#             'pan': 211,
-#             'pan_fine': 0,
-#             'speed': 255,
-#             'strobe': 255,
-#             'tilt': 54,
-#             'tilt_fine': 0},
-#   'type': 'UKingGobo'},
-#  {'enums': {'color': {'blue': [30, 39],
-#                       'blue_green': [120, 127],
-#                       'cyan': [60, 69],
-#                       'cyan_orange': [90, 99],
-#                       'green': [20, 29],
-#                       'orange': [50, 59],
-#                       'orange_yellow': [100, 109],
-#                       'pink': [70, 79],
-#                       'pink_cyan': [80, 89],
-#                       'red': [10, 19],
-#                       'white': [0, 9],
-#                       'yellow': [40, 49],
-#                       'yellow_blue': [110, 119]},
-#             'gobo': {'3_spot_circle': [24, 31],
-#                      'broken_circle': [8, 15],
-#                      'burst': [16, 23],
-#                      'dither_3_spot_circle': [88, 95],
-#                      'dither_broken_circle': [72, 79],
-#                      'dither_burst': [80, 87],
-#                      'dither_droplets': [104, 111],
-#                      'dither_none': [64, 71],
-#                      'dither_square_spots': [96, 103],
-#                      'dither_stripes': [120, 127],
-#                      'dither_swirl': [112, 119],
-#                      'droplets': [40, 47],
-#                      'none': [0, 7],
-#                      'square_spots': [32, 39],
-#                      'stripes': [56, 63],
-#                      'swirl': [48, 55]}},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'color',
-#                 'gobo',
-#                 'strobe',
-#                 'dim',
-#                 'speed',
-#                 'mode',
-#                 'dim_mode'],
-#   'name': 'mid_2',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'color': 103,
-#             'dim': 255,
-#             'dim_mode': 0,
-#             'gobo': 24,
-#             'mode': 0,
-#             'pan': 183,
-#             'pan_fine': 0,
-#             'speed': 255,
-#             'strobe': 255,
-#             'tilt': 25,
-#             'tilt_fine': 0},
-#   'type': 'UKingGobo'},
-#  {'enums': {'color': {'blue': [30, 39],
-#                       'blue_green': [120, 127],
-#                       'cyan': [60, 69],
-#                       'cyan_orange': [90, 99],
-#                       'green': [20, 29],
-#                       'orange': [50, 59],
-#                       'orange_yellow': [100, 109],
-#                       'pink': [70, 79],
-#                       'pink_cyan': [80, 89],
-#                       'red': [10, 19],
-#                       'white': [0, 9],
-#                       'yellow': [40, 49],
-#                       'yellow_blue': [110, 119]},
-#             'gobo': {'3_spot_circle': [24, 31],
-#                      'broken_circle': [8, 15],
-#                      'burst': [16, 23],
-#                      'dither_3_spot_circle': [88, 95],
-#                      'dither_broken_circle': [72, 79],
-#                      'dither_burst': [80, 87],
-#                      'dither_droplets': [104, 111],
-#                      'dither_none': [64, 71],
-#                      'dither_square_spots': [96, 103],
-#                      'dither_stripes': [120, 127],
-#                      'dither_swirl': [112, 119],
-#                      'droplets': [40, 47],
-#                      'none': [0, 7],
-#                      'square_spots': [32, 39],
-#                      'stripes': [56, 63],
-#                      'swirl': [48, 55]}},
-#   INFO:werkzeug: * Running on http://127.0.0.1:5000/ (Press CTRL+C to quit)
-# 'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'color',
-#                 'gobo',
-#                 'strobe',
-#                 'dim',
-#                 'speed',
-#                 'mode',
-#                 'dim_mode'],
-#   'name': 'mid_3',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'color': 103,
-#             'dim': 255,
-#             'dim_mode': 0,
-#             'gobo': 24,
-#             'mode': 0,
-#             'pan': 72,
-#             'pan_fine': 0,
-#             'speed': 255,
-#             'strobe': 255,
-#             'tilt': 25,
-#             'tilt_fine': 0},
-#   'type': 'UKingGobo'},
-#  {'enums': {'color': {'blue': [30, 39],
-#                       'blue_green': [120, 127],
-#                       'cyan': [60, 69],
-#                       'cyan_orange': [90, 99],
-#                       'green': [20, 29],
-#                       'orange': [50, 59],
-#                       'orange_yellow': [100, 109],
-#                       'pink': [70, 79],
-#                       'pink_cyan': [80, 89],
-#                       'red': [10, 19],
-#                       'white': [0, 9],
-#                       'yellow': [40, 49],
-#                       'yellow_blue': [110, 119]},
-#             'gobo': {'3_spot_circle': [24, 31],
-#                      'broken_circle': [8, 15],
-#                      'burst': [16, 23],
-#                      'dither_3_spot_circle': [88, 95],
-#                      'dither_broken_circle': [72, 79],
-#                      'dither_burst': [80, 87],
-#                      'dither_droplets': [104, 111],
-#                      'dither_none': [64, 71],
-#                      'dither_square_spots': [96, 103],
-#                      'dither_stripes': [120, 127],
-#                      'dither_swirl': [112, 119],
-#                      'droplets': [40, 47],
-#                      'none': [0, 7],
-#                      'square_spots': [32, 39],
-#                      'stripes': [56, 63],
-#                      'swirl': [48, 55]}},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'color',
-#                 'gobo',
-#                 'strobe',
-#                 'dim',
-#                 'speed',
-#                 'mode',
-#                 'dim_mode'],
-#   'name': 'mid_4',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'color': 9,
-#             'dim': 255,
-#             'dim_mode': 0,
-#             'gobo': 109,
-#             'mode': 0,
-#             'pan': 44,
-#             'pan_fine': 0,
-#             'speed': 255,
-#             'strobe': 255,
-#             'tilt': 54,
-#             'tilt_fine': 0},
-#   'type': 'UKingGobo'},
-#  {'enums': {},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'speed',
-#                 'dim',
-#                 'strobe',
-#                 'red',
-#                 'green',
-#                 'blue',
-#                 'white',
-#                 'amber',
-#                 'uv',
-#                 'mode',
-#                 'motor_sens',
-#                 'effect',
-#                 'led_sens',
-#                 'reset'],
-#   'name': 'front_1',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'amber': 0,
-#             'blue': 359,
-#             'dim': 255,
-#             'effect': 0,
-#             'green': 14,
-#             'led_sens': 0,
-#             'mode': 0,
-#             'motor_sens': 0,
-#             'pan': 134,
-#             'pan_fine': 0,
-#             'red': 2,
-#             'reset': 0,
-#             'speed': 255,
-#             'strobe': 0,
-#             'tilt': 208,
-#             'tilt_fine': 0,
-#             'uv': 0,
-#             'white': 0},
-#   'type': 'TomshineMovingHead6in1'},
-#  {'enums': {},
-#   'functions': ['pan',
-#                 'pan_fine',
-#                 'tilt',
-#                 'tilt_fine',
-#                 'speed',
-#                 'dim',
-#                 'strobe',
-#                 'red',
-#                 'green',
-#                 'blue',
-#                 'white',
-#                 'amber',
-#                 'uv',
-#                 'mode',
-#                 'motor_sens',
-#                 'effect',
-#                 'led_sens',
-#                 'reset'],
-#   'name': 'front_2',
-#   'speeds': {'pan': [25, 1], 'tilt': [10, 0.5]},
-#   'state': {'amber': 0,
-#             'blue': 359,
-#             'dim': 255,
-#             'effect': 0,
-#             'green': 14,
-#             'led_sens': 0,
-#             'mode': 0,
-#             'motor_sens': 0,
-#             'pan': 121,
-#             'pan_fine': 0,
-#             'red': 2,
-#             'reset': 0,
-#             'speed': 255,
-#             'strobe': 0,
-#             'tilt': 208,
-#             'tilt_fine': 0,
-#             'uv': 0,
-#             'white': 0},
-#   'type': 'TomshineMovingHead6in1'},
-#  {'enums': {},
-#   'functions': [],
-#   'name': 'ledstrip',
-#   'speeds': {},
-#   'state': {},
-#   'type': 'RemoteStrip'}]
+                pos = pages['light_select'].add_light(db_light)
+                if pos:
+                    db_light['pos'] = pos
+                    db.save()

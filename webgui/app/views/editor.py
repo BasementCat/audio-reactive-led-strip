@@ -1,8 +1,8 @@
 from flask import Blueprint, render_template, abort, redirect, url_for
 
-from app.lib.models import EffectStack, EffectGroup, Effect
 from app.lib.forms import EffectForm, EffectGroupForm, EffectStackForm
-from app import db
+from app import database as db
+from app.lib.database import ObjProxy
 
 
 app = Blueprint('editor', __name__)
@@ -10,49 +10,45 @@ app = Blueprint('editor', __name__)
 
 @app.route('/')
 def index():
-    stacks = EffectStack.query.all()
-    groups = EffectGroup.query.all()
-    effects = Effect.query.all()
-    return render_template('editor/index.jinja.html', stacks=stacks, groups=groups, effects=effects)
+    return render_template('editor/index.jinja.html', db=db)
 
 
 @app.route('/edit/<type_>/new', methods=['GET', 'POST'])
-@app.route('/edit/<type_>/<int:id>', methods=['GET', 'POST'])
-def edit(type_, id=None):
+@app.route('/edit/<type_>/<name>', methods=['GET', 'POST'])
+def edit(type_, name=None):
     obj = None
+    key = None
+    form_cls = None
     if type_ == 'effect':
-        if id:
-            obj = Effect.query.get(id)
-        form = EffectForm(obj=obj)
+        key = 'effects'
+        form_cls = EffectForm
 
     elif type_ == 'group':
-        if id:
-            obj = EffectGroup.query.get(id)
-        form = EffectGroupForm(obj=obj)
+        key = 'effect_groups'
+        form_cls = EffectGroupForm
 
     elif type_ == 'stack':
-        if id:
-            obj = EffectStack.query.get(id)
-        form = EffectStackForm(obj=obj)
+        key = 'effect_stacks'
+        form_cls = EffectStackForm
 
     else:
         abort(400, "Invalid type")
 
+    if name:
+        obj = db[key].get(name)
+        if obj:
+            obj = ObjProxy(obj)
+    form = form_cls(obj=obj)
+
+    if name and obj is None:
+        abort(404, "No such " + type_)
+
     if form.validate_on_submit():
-        if type_ == 'effect':
-            obj = obj or Effect()
+        with db:
+            obj = obj or ObjProxy({})
             form.populate_obj(obj)
-
-        elif type_ == 'group':
-            obj = obj or EffectGroup()
-            form.populate_obj(obj)
-
-        elif type_ == 'stack':
-            obj = obj or EffectStack()
-            form.populate_obj(obj)
-
-        db.session.add(obj)
-        db.session.commit()
+            db[key][obj.name] = obj.data
+            db.save()
 
         return redirect(url_for('.index'))
 

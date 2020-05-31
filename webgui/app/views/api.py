@@ -1,10 +1,10 @@
 import time
 import json
+import copy
 
 from flask import Blueprint, Response, jsonify, request
 
-from app import network, db
-from app.lib.models import Effect
+from app import network, database as db
 
 
 app = Blueprint('api', __name__)
@@ -33,13 +33,7 @@ def api_send():
 @app.route('/effect', methods=['POST'])
 def api_effect():
     d = request.json
-    db.session.add(Effect(
-        name=d['name'],
-        prop=d['property'],
-        raw_duration=d['duration'],
-        start=d['start'],
-        end=d['end'],
-        done=d['done']
-    ))
-    db.session.commit()
+    with db:
+        db['effects'][d['name']] = copy.deepcopy(d)
+        db.save()
     return jsonify({'result': 'OK'})

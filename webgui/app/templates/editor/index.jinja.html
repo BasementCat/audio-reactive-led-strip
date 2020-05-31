@@ -9,8 +9,8 @@
                 <h2>Effect Stacks</h2>
                 <a class="btn btn-primary" href="{{ url_for('.edit', type_='stack') }}">New</a>
                 <ul class="list-group">
-                    {% for s in stacks %}
-                        <li class="list-group-item"><a href="{{ url_for('.edit', type_='stack', id=s.id) }}">{{ s.name }}</a></li>
+                    {% for s in db['effect_stacks'].values() %}
+                        <li class="list-group-item"><a href="{{ url_for('.edit', type_='stack', name=s.name) }}">{{ s.name }}</a></li>
                     {% endfor %}
                 </ul>
             </div>
@@ -18,10 +18,10 @@
                 <h2>Effect Groups</h2>
                 <a class="btn btn-primary" href="{{ url_for('.edit', type_='group') }}">New</a>
                 <ul class="list-group">
-                    {% for g in groups %}
+                    {% for g in db['effect_groups'].values() %}
                         <li class="list-group-item">
-                            {{ g.color |lp_color }}
-                            <a href="{{ url_for('.edit', type_='group', id=g.id) }}">
+                            {{ g |lp_color }}
+                            <a href="{{ url_for('.edit', type_='group', name=g.name) }}">
                                 {{ g.name }}
                             </a>
                         </li>
@@ -32,8 +32,8 @@
                 <h2>Effects</h2>
                 <a class="btn btn-primary" href="{{ url_for('.edit', type_='effect') }}">New</a>
                 <ul class="list-group">
-                    {% for e in effects %}
-                        <li class="list-group-item"><a href="{{ url_for('.edit', type_='effect', id=e.id) }}">{{ e.name }}</a></li>
+                    {% for e in db['effects'].values() %}
+                        <li class="list-group-item"><a href="{{ url_for('.edit', type_='effect', name=e.name) }}">{{ e.name }}</a></li>
                     {% endfor %}
                 </ul>
             </div>

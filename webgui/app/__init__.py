@@ -6,8 +6,6 @@ import time
 
 from flask import Flask, render_template, jsonify, request, abort, Response
 from flask_bootstrap import Bootstrap
-from flask_sqlalchemy import SQLAlchemy
-from flask_migrate import Migrate
 
 from markupsafe import Markup
 
@@ -15,20 +13,21 @@ from launchpad.colors import Color
 
 from app.lib.network import NetworkThread
 from app.lib.lp import LPControlThread
+from app.lib.database import Database
 
 
 logging.basicConfig(level=logging.DEBUG)
 
-db = SQLAlchemy()
 network = NetworkThread()
 lp = LPControlThread()
+database = Database()
 
 
 def create_app():
     app_obj = Flask(__name__)
     app_obj.config['SECRET_KEY'] = 'secret!'
     app_obj.config['TEMPLATES_AUTO_RELOAD'] = True
-    app_obj.config['SQLALCHEMY_DATABASE_URI'] = 'sqlite:///data.db'
+    app_obj.config['DATABASE_FILE'] = './data.db.json'
     app_obj.config['LIGHT_SERVER_HOST'] = 'localhost'
     app_obj.config['LIGHT_SERVER_PORT'] = 37737
 
@@ -36,18 +35,21 @@ def create_app():
         with open('./config.json', 'r') as fp:
             app_obj.config.update(json.load(fp))
     network.configure(app_obj.config)
+    database.open(app_obj.config['DATABASE_FILE'])
 
     Bootstrap(app_obj)
-    db.init_app(app_obj)
-    Migrate(app_obj, db)
 
     def _tojson(obj):
         return json.dumps(obj, indent=4)
     app_obj.jinja_env.filters['tojson'] = _tojson
 
     def _lp_color(v):
-        c, i = v.split(':', 1)
-        return Markup('<span class="lp-color" style="background-color: ' + Color.COLORS[c] + '">' + i + '</span>')
+        if hasattr(v, 'get'):
+            c = v['color']
+            i = v.get('color_intensity') or 4
+        else:
+            c, i = v.split(':', 1)
+        return Markup('<span class="lp-color" style="background-color: ' + Color.COLORS[c] + '">' + str(i) + '</span>')
     app_obj.jinja_env.filters['lp_color'] = _lp_color
 
     from app.views import index as index_view
