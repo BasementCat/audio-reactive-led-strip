@@ -434,7 +434,7 @@ class LightControlPage(NavigablePage):
                 colors=ColorMap(colors),
                 value_map=ButtonMap(values),
                 mutex=True,
-                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 8)
+                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 7)
             )
             self._main_controls_x += num_cols
 
@@ -452,7 +452,7 @@ class LightControlPage(NavigablePage):
                 colors=ColorMap(colors),
                 value_map=ButtonMap(values),
                 mutex=True,
-                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 8)
+                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 7)
             )
             self._main_controls_x += num_cols
 
@@ -488,7 +488,7 @@ class LightControlPage(NavigablePage):
                 colors=ColorMap(colors),
                 value_map=ButtonMap(values),
                 mutex=True,
-                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 8)
+                buttons=ButtonGroup(self._main_controls_x, 0, self._main_controls_x + num_cols - 1, 7)
             )
             self._main_controls_x += num_cols
 
@@ -513,7 +513,7 @@ class LightControlPage(NavigablePage):
                 colors=ColorMap([[Color('ORANGE'), Color('ORANGE', pulse=True)] for _ in range(len(light['enums']['pattern_static']))]),
                 value_map=ButtonMap([e[0] for e in light['enums']['pattern_static'].values()]),
                 mutex=True,
-                buttons=ButtonGroup(self._sub_controls_x, 8, self._sub_controls_x + num_cols, 16)
+                buttons=ButtonGroup(self._sub_controls_x, 8, self._sub_controls_x + num_cols - 1, 15)
             )
             self._sub_controls_x += num_cols
 
