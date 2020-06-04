@@ -18,7 +18,7 @@ class IdleOffStateEffect(StateEffect):
         return (data.get('idle_for') or 0) > self.delay
 
     def apply(self, light, data):
-        light.state[self.param] = self.value
+        light.auto_state[self.param] = self.value
 
 
 class DeadPatternStateEffect(StateEffect):
@@ -37,12 +37,12 @@ class DeadPatternStateEffect(StateEffect):
 
     def apply(self, light, data):
         if self.mode_param:
-            self.prev_mode = light.state[self.mode_param]
-            light.state[self.mode_param] = self.mode_value
+            self.prev_mode = light.auto_state[self.mode_param]
+            light.auto_state[self.mode_param] = self.mode_value
 
     def unapply(self, light, data):
         if self.prev_mode is not None:
-            light.state[self.mode_param] = self.prev_mode
+            light.auto_state[self.mode_param] = self.prev_mode
             self.prev_mode = None
 
     def run(self, light, data):

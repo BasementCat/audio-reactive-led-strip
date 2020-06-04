@@ -22,8 +22,8 @@ class DeadCoastingStateEffect(StateEffect):
         return (data.get('dead_for') or 0) > self.delay
 
     def apply(self, light, data):
-        light.state['speed'] = self.speed
-        light.add_effect('dim', Effect(light.state['dim'], self.dim, self.dim_duration), overwrite=True)
+        light.auto_state['speed'] = self.speed
+        light.add_effect('dim', Effect(light.auto_state['dim'], self.dim, self.dim_duration), overwrite=True)
 
     def run(self, light, data):
         light.add_effect('pan', Effect(random.randint(0, 255), None, 8))
@@ -47,7 +47,7 @@ class IdleCoastingStateEffect(StateEffect):
         return data.get('audio_v_sum') and idle_pan_tilt
 
     def apply(self, light, data):
-        light.state['speed'] = self.speed
+        light.auto_state['speed'] = self.speed
 
     def run(self, light, data):
         light.add_effect('pan', Effect(random.randint(0, 255), None, self.move_duration))
@@ -69,7 +69,7 @@ class IdleFadeoutStateEffect(StateEffect):
         return (data.get('idle_for') or 0) > self.delay
 
     def apply(self, light, data):
-        light.add_effect('dim', Effect(light.state['dim'], 0, self.dim_duration), overwrite=True)
+        light.add_effect('dim', Effect(light.auto_state['dim'], 0, self.dim_duration), overwrite=True)
     #     self.applied = time.time()
 
     # def unapply(self, light, data):
@@ -140,7 +140,7 @@ class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
     def _get_dead_coasting_effects(self):
         return {
             'color': Effect(
-                (self.state['red'], self.state['green'], self.state['blue'],),
+                (self.auto_state['red'], self.auto_state['green'], self.auto_state['blue'],),
                 self.map_color(None, 1, 0),
                 2
             )
@@ -149,7 +149,7 @@ class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
     def _map_pan_tilt(self, function, value, threshold):
         if value < threshold:
             return
-        cur_value = self.state[function]
+        cur_value = self.auto_state[function]
         distance = int(map_to_range(value, threshold) * (max(cur_value, 255 - cur_value)))
         choices = [
             min(cur_value + distance, 255),
@@ -185,7 +185,7 @@ class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
                     out.append(0)
             if sum(out):
                 # Try to create an effect to fade to the next color, always return something if there's data
-                curr = (self.state['red'], self.state['green'], self.state['blue'])
+                curr = (self.auto_state['red'], self.auto_state['green'], self.auto_state['blue'])
                 self.add_effect('color', Effect(curr, out, 0.25))
                 # return curr
             return None
@@ -196,7 +196,7 @@ class TomshineMovingHead6in1(MovingHeadMixin, BasicDMX):
         if trigger == 'pitch':
             return int((value / 128) * 255), 0, 0
 
-        old_rgb = [self.state[k] for k in ('red', 'green', 'blue')]
+        old_rgb = [self.auto_state[k] for k in ('red', 'green', 'blue')]
         diff = 0
         while diff < 0.25:
             rgb = [random.randint(0, 256) for _ in range(3)]

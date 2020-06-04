@@ -30,6 +30,7 @@ class ModePage(Page):
         return super().groups + ['MODE', 'RIGHT']
 
     nav = Toggle(colors=[Color('BLUE'), Color('GREEN')], mutex=True, buttons=ButtonGroup((('MODE', 'SESSION'), ('MODE', 'MIXER'))))
+    # TODO: handle partial suspend
     suspend = Toggle(colors=[Color('GREEN', pulse=True), Color('RED')], buttons=ButtonGroup('RIGHT', 'STOP'))
 
     def on_nav(self, event):
@@ -45,7 +46,7 @@ class ModePage(Page):
 
     def on_suspend(self, event):
         if event.value:
-            network.send_to_server('SUSPEND', event.control_value)
+            network.send_to_server('SUSPEND', state=event.control_value)
 
     def loop(self, lp):
         self.last_colors = getattr(self, 'last_colors', {})
@@ -88,8 +89,9 @@ class LightSelectPage(Page):
         colors={
             ('RIGHT', 'VOLUME'): [Color('BLUE'), Color('BLUE', pulse=True)],
             ('RIGHT', 'PAN'): [Color('PINK'), Color('PINK', pulse=True)],
+            ('RIGHT', 'STOP'): [Color('GREEN'), Color('GREEN', pulse=True)],
         },
-        buttons=ButtonGroup((('RIGHT', 'VOLUME'), ('RIGHT', 'PAN'))),
+        buttons=ButtonGroup((('RIGHT', 'VOLUME'), ('RIGHT', 'PAN'), ('RIGHT', 'STOP'))),
         mutex=True
     )
     light_select = Momentary(on_color=Color('OFF'), off_color=Color('OFF'), buttons=ButtonGroup())
@@ -98,6 +100,7 @@ class LightSelectPage(Page):
         super().__init__(*args, **kwargs)
         self.mode = None
         self.selected_light = None
+        self.suspended_lights = []
 
     def add_light(self, light):
         is_new = False
@@ -128,11 +131,20 @@ class LightSelectPage(Page):
                     self.mode = 'position'
                 elif event.button == 'PAN':
                     self.mode = 'color'
+                elif event.button == 'STOP':
+                    self.mode = 'suspend'
                 else:
                     # Should not happen
                     self.mode = None
             else:
                 self.mode = None
+
+            for l in self.light_select.value_map.values():
+                if self.mode == 'suspend':
+                    # TODO: handle suspended
+                    self.light_select.off_color[('GRID', tuple(l['pos']))] = Color(l['color'], pulse=True)
+                else:
+                    self.light_select.off_color[('GRID', tuple(l['pos']))] = Color(l['color'])
 
     def on_light_select(self, event):
         if event.value:
@@ -141,7 +153,7 @@ class LightSelectPage(Page):
                     if event.attached_value:
                         # Mark as selected, flash the button
                         l = self.selected_light = event.attached_value
-                        self.light_select.off_color[('GRID', l['pos'])] = Color(l['color'], pulse=True)
+                        self.light_select.off_color[('GRID', tuple(l['pos']))] = Color(l['color'], pulse=True)
                         # TODO: needs to be reflected in the UI?
                         print("Selected", l['name'])
                 else:
@@ -177,6 +189,18 @@ class LightSelectPage(Page):
 
                     self.selected_light
                     event.pm.push_page(ColorSelectPage(_select_color))
+            elif self.mode == 'suspend':
+                light = event.attached_value
+                if light:
+                    state = light['name'] not in self.suspended_lights
+                    network.send_to_server('SUSPEND', light['name'], state=state)
+                    if state:
+                        self.light_select.off_color[('GRID', tuple(light['pos']))] = Color('RED')
+                        self.suspended_lights.append(light['name'])
+                    else:
+                        self.light_select.off_color[('GRID', tuple(light['pos']))] = Color(light['color'], pulse=True)
+                        self.suspended_lights.remove(light['name'])
+
             else:
                 if event.attached_value:
                     event.pm.push_page(LightControlPage(event.attached_value))

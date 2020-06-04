@@ -23,7 +23,7 @@ class GoboMixin:
     def _map_pan_tilt(self, function, trigger, value, threshold):
         if value < threshold:
             return
-        cur_value = self.state[function]
+        cur_value = self.auto_state[function]
         distance = int(map_to_range(value, threshold) * (max(cur_value, 255 - cur_value)))
         choices = [
             min(cur_value + distance, 255),

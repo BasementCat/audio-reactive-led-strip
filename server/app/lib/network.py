@@ -81,6 +81,14 @@ class Network(object):
                 logger.info("Network input has new connection from %s", addr)
                 self.clients.append(newsock)
 
+                if self.config.get('SUSPENDED'):
+                    if len(self.config['SUSPENDED']) == len(self.lights):
+                        suspended_state = True
+                    else:
+                        suspended_state = self.config['SUSPENDED']
+                else:
+                    suspended_state = False
+
                 self.send_command(newsock, 'LIGHTS', *[
                     {
                         'type': l.__class__.__name__,
@@ -91,7 +99,7 @@ class Network(object):
                         'enums': getattr(l, 'ENUMS', {}),
                     }
                     for l in self.lights
-                ], suspended=data.get('SUSPENDED', False))
+                ], suspended=data.get('SUSPENDED', suspended_state))
             else:
                 data = b''
                 try:
@@ -154,14 +162,23 @@ class Network(object):
     def _command_echo(self, s, *args, **kwargs):
         self.send_command(s, 'echo_response', *args, **kwargs)
 
-    def _command_suspend(self, s, *args, **kwargs):
-        state = bool(args[0]) if args else True
-        self.config['SUSPENDED'] = state
-        send_monitor(None, 'SUSPENDED', state)
+    def _command_suspend(self, s, *names, **kwargs):
+        state = kwargs.get('state', True)
+        lights = list(filter(lambda v: v.name in names, self.lights)) if names else self.lights
+        if not names:
+            self.config['SUSPENDED'] = [l.name for l in lights] if state else []
+        else:
+            if state:
+                self.config['SUSPENDED'] = list(set(self.config.get('SUSPENDED', [])) | set([l.name for l in lights]))
+            else:
+                self.config['SUSPENDED'] = list(set(self.config.get('SUSPENDED', [])) - set([l.name for l in lights]))
+
+        send_monitor(None, 'SUSPENDED', state if not names else self.config['SUSPENDED'])
         self.send_command(s, 'OK')
 
-    def _command_unsuspend(self, s, *args):
-        self._command_suspend(s, 0)
+    def _command_unsuspend(self, s, *names, **kwargs):
+        kwargs = dict(kwargs, state=False)
+        self._command_suspend(s, *names, **kwargs)
 
     def _command_state(self, s, *names, **kwargs):
         lights = list(filter(lambda v: v.name in names, self.lights)) if names else self.lights

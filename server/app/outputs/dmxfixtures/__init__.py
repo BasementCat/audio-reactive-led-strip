@@ -50,6 +50,8 @@ class BasicDMX(Output):
         self.state = {k: 0 for k in self.FUNCTIONS.keys()}
         self.state.update(self.INITIALIZE)
         self.last_state = dict(self.state)
+        self.auto_state = dict(self.state)
+        self.last_auto_state = dict(self.state)
         self.fps = FPSCounter(f"{self.__class__.__name__} {self.name}")
         self.effects = {}
         self.state_effect = None
@@ -58,6 +60,8 @@ class BasicDMX(Output):
     def start(self, data):
         self.state.update(self.INITIALIZE)
         self.last_state = dict(self.state)
+        self.auto_state = dict(self.state)
+        self.last_auto_state = dict(self.state)
         self.send_dmx(data)
 
     def get_state_effects(self):
@@ -69,36 +73,35 @@ class BasicDMX(Output):
 
     def run(self, data):
         with self.fps:
-            if not self.config.get('SUSPENDED'):
-                new_state = data.get('push_state__' + self.name)
-                if new_state:
-                    self.state = dict(new_state)
-                if self.output_config.get('MAPPING'):
-                    self._run_effects(data)
+            new_state = data.get('push_state__' + self.name)
+            if new_state:
+                self.auto_state = dict(new_state)
+            if self.output_config.get('MAPPING'):
+                self._run_effects(data)
 
-                    if self.state_effect:
-                        if not self.state_effect.applicable(self, data):
+                if self.state_effect:
+                    if not self.state_effect.applicable(self, data):
+                        send_monitor(self, 'STATE_EFFECT', opstate='DONE', opname=self.state_effect.__class__.__name__)
+                        self.state_effect.unapply(self, data)
+                        self.state_effect = None
+                        self.send_dmx(data, True)
+                    else:
+                        self.state_effect.run(self, data)
+
+                for e in self.state_effects:
+                    if e is self.state_effect:
+                        break
+                    if e.applicable(self, data):
+                        if self.state_effect:
                             send_monitor(self, 'STATE_EFFECT', opstate='DONE', opname=self.state_effect.__class__.__name__)
                             self.state_effect.unapply(self, data)
-                            self.state_effect = None
-                            self.send_dmx(data, True)
-                        else:
-                            self.state_effect.run(self, data)
+                        self.state_effect = e
+                        e.apply(self, data)
+                        self.send_dmx(data, True)
+                        send_monitor(self, 'STATE_EFFECT', opstate='NEW', opname=self.state_effect.__class__.__name__)
+                        break
 
-                    for e in self.state_effects:
-                        if e is self.state_effect:
-                            break
-                        if e.applicable(self, data):
-                            if self.state_effect:
-                                send_monitor(self, 'STATE_EFFECT', opstate='DONE', opname=self.state_effect.__class__.__name__)
-                                self.state_effect.unapply(self, data)
-                            self.state_effect = e
-                            e.apply(self, data)
-                            self.send_dmx(data, True)
-                            send_monitor(self, 'STATE_EFFECT', opstate='NEW', opname=self.state_effect.__class__.__name__)
-                            break
-
-                    self._run_mapping(data)
+                self._run_mapping(data)
 
             self.send_dmx(data)
 
@@ -118,9 +121,9 @@ class BasicDMX(Output):
                 value = e.value
 
             if fn in self.MULTI_PROP_MAP:
-                self.state.update(dict(zip(self.MULTI_PROP_MAP[fn], value)))
+                self.auto_state.update(dict(zip(self.MULTI_PROP_MAP[fn], value)))
             else:
-                self.state[fn] = value
+                self.auto_state[fn] = value
 
         for k in done:
             send_monitor(self, 'EFFECT', opstate='DONE', opname=k, **self.effects[k].args)
@@ -206,13 +209,16 @@ class BasicDMX(Output):
                         del self.effects[k]
             for k in self.RESET_ON_NEW_STATE:
                 v = self.INITIALIZE.get(k, 0)
-                if self.state[k] != v:
-                    self.state[k] = v
+                if self.auto_state[k] != v:
+                    self.auto_state[k] = v
                 self.send_dmx(data, True)
 
-            self.state.update(new_state)
+            self.auto_state.update(new_state)
 
     def prep_dmx(self):
+        # If this light is not suspended, copy the auto state to the real state
+        if self.name not in self.config.get('SUSPENDED', []):
+            self.state.update(self.auto_state)
         out = dict(self.state)
         changed = {}
         for k, v in out.items():
@@ -234,7 +240,8 @@ class BasicDMX(Output):
                 if linked.get('NAME') is None or linked.get('NAME') == self.output_config['NAME']:
                     # TODO: log
                     continue
-                linked_state = dict(self.state)
+                # Only push the auto state
+                linked_state = dict(self.auto_state)
                 for fn in linked.get('INVERT') or []:
                     linked_state[fn] = 255 - linked_state[fn]
                 data['push_state__' + linked.get('NAME')] = linked_state
@@ -242,4 +249,5 @@ class BasicDMX(Output):
         state = self.prep_dmx()
         channels = {self.FUNCTIONS[chan] + self.output_config.get('ADDRESS', 1) - 1: val for chan, val in state.items()}
         data.setdefault('dmx_force' if force else 'dmx', {}).update(channels)
+        self.last_auto_state = dict(self.auto_state)
         self.last_state = dict(self.state)

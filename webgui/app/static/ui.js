@@ -562,7 +562,7 @@ document.querySelector('#suspend').addEventListener('change', function(e) {
     var req = new XMLHttpRequest();
     req.open('POST', '/api/send');
     req.setRequestHeader("Content-Type", "application/json;charset=UTF-8");
-    req.send(JSON.stringify({command: 'suspend', args: [e.target.checked]}));
+    req.send(JSON.stringify({command: 'suspend', kwargs: {state: e.target.checked}}));
 });
 
 document.addEventListener('click', function(event) {
