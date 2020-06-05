@@ -382,9 +382,9 @@ class ControlForm {
     save() {
         // Validate required properties
         var ok = true;
-        if (!(this.el_light.value && this.el_property.value && this.el_duration.value)) {
+        if (!(this.el_light.value && this.el_property.value)) {
             ok = false;
-            alert("Light, property, and duration are required");
+            alert("Light, property are required");
         } else if (!(this.el_start.value || this.el_end.value)) {
             ok = false;
             alert("Start or end are required");
