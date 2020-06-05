@@ -52,6 +52,7 @@ class DeadPatternStateEffect(StateEffect):
 class PatternLaserMixin:
     INVERT = ['scan_speed', 'pattern_speed']
     CLEAR_EFFECTS_ON_NEW_STATE = ['scan_speed', 'pattern_speed']
+    RESET_ON_NEW_STATE = ['mode']
 
 
 class Generic4ColorLaser(PatternLaserMixin, BasicDMX):
