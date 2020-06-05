@@ -30,6 +30,7 @@ class Network(object):
         port = self.config.get('NETWORK_PORT', 37737)
 
         self.clients = []
+        self.monitor_clients = []
 
         self.server_sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_sock.setblocking(0)
@@ -156,7 +157,8 @@ class Network(object):
                 print('MONITOR', v)
         if monitor_queue:
             for c in self.clients:
-                self.send_command(c, 'MONITOR', *monitor_queue)
+                if c in self.monitor_clients:
+                    self.send_command(c, 'MONITOR', *monitor_queue)
             monitor_queue[:] = []
 
     def _command_echo(self, s, *args, **kwargs):

@@ -93,6 +93,7 @@ class NetworkThread(Thread):
         try:
             self.sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
             self.sock.connect((self.host, self.port))
+            self.send_to_server('MONITOR')
             return True
         except:
             logger.error("Failed to connect to %s:%d", host, port, exc_info=True)
