@@ -76,9 +76,9 @@ class BasicDMX(Output):
             new_state = data.get('push_state__' + self.name)
             if new_state:
                 self.auto_state = dict(new_state)
+            # Normally, lights without a mapping won't have effects, unless added via non-automation
+            self._run_effects(data)
             if self.output_config.get('MAPPING'):
-                self._run_effects(data)
-
                 if self.state_effect:
                     if not self.state_effect.applicable(self, data):
                         send_monitor(self, 'STATE_EFFECT', opstate='DONE', opname=self.state_effect.__class__.__name__)
@@ -113,6 +113,7 @@ class BasicDMX(Output):
     def _run_effects(self, data):
         done = []
         for fn, e in self.effects.items():
+            dest = self.auto_state if e.automation else self.state
             value = None
             if e.done:
                 value = e.done_value
@@ -121,9 +122,9 @@ class BasicDMX(Output):
                 value = e.value
 
             if fn in self.MULTI_PROP_MAP:
-                self.auto_state.update(dict(zip(self.MULTI_PROP_MAP[fn], value)))
+                dest.update(dict(zip(self.MULTI_PROP_MAP[fn], value)))
             else:
-                self.auto_state[fn] = value
+                dest[fn] = value
 
         for k in done:
             send_monitor(self, 'EFFECT', opstate='DONE', opname=k, **self.effects[k].args)

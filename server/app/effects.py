@@ -2,13 +2,14 @@ import time
 
 
 class Effect(object):
-    def __init__(self, start_value, end_value, duration, done_value=None):
+    def __init__(self, start_value, end_value, duration, done_value=None, automation=True):
         self.start_time = time.time()
         self.end_time = self.start_time + duration
         self.start_value = start_value
         self.end_value = self.start_value if end_value is None else end_value
         self.duration = duration
         self.done_value_real = done_value or self.end_value
+        self.automation = automation
         try:
             len(self.start_value)
             self.single = False

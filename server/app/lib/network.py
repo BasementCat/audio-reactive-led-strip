@@ -4,6 +4,8 @@ import logging
 import json
 import re
 
+from app.effects import Effect
+
 
 logger = logging.getLogger(__name__)
 
@@ -240,6 +242,31 @@ class Network(object):
             out.append({'light': l.name, 'result': True})
 
         self.send_command(s, 'OK', *out)
+
+    def _command_effect(self, s, *names, **props):
+        lights = list(filter(lambda v: v.name in names, self.lights)) if names else self.lights
+        out = []
+        for l in lights:
+            if hasattr(l, 'add_effect'):
+                for k, v in props.items():
+                    # TODO: random
+                    start = v['start']
+                    if start == 'current':
+                        start = l.state[k]
+
+                    end = v.get('end')
+                    if end == 'current':
+                        end = l.state[k]
+
+                    eff = Effect(start, end, v.get('duration', 0), done_value=v.get('done'), automation=False)
+                    l.add_effect(k, eff, overwrite=v.get('overwrite', False))
+                out.append({'light': l.name, 'result': True})
+
+        self.send_command(s, 'OK', *out)
+
+    def _command_monitor(self, s, *a, **ka):
+        self.monitor_clients.append(s)
+        self.send_command(s, 'OK')
 
 
 class NetworkTask(object):
