@@ -1,0 +1,5 @@
+# Copy to /etc/udev/rules.d/99-dreamcheeky-bigredbutton.rules
+# Replace the group w/ your user group
+# Run sudo udevadm control --reload-rules
+# If the button was already plugged in, unplug it and plug it back in
+SUBSYSTEM=="usb",ATTRS{idVendor}=="1d34",ATTRS{idProduct}=="000d",MODE="0660",GROUP="youruser"

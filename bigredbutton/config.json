@@ -1,0 +1,29 @@
+{
+    "HOST": "localhost",
+    "PORT": 37737,
+    "EFFECTS": {
+        "LID_OPEN": [
+            {"lights": ["mid_1"], "props": {"speed": 255, "pan": 70, "tilt": 40, "color": 0, "gobo": 0}, "suspend": true},
+            {"lights": ["mid_1"], "props": {"dim": 36}, "duration": 0.5, "wait": true}
+        ],
+        "LID_CLOSE": [
+            {"lights": ["mid_1", "mid_2"], "suspend": false}
+        ],
+        "BUTTON_CLICK": [
+            [
+                {"lights": ["mid_1"], "props": {"speed": 255, "pan": 70, "tilt": 40, "color": 0, "gobo": 0}, "suspend": true},
+                {"lights": ["mid_1"], "props": {"dim": 36}, "duration": 0.5, "wait": true},
+                {"lights": ["mid_2"], "suspend": false}
+            ],
+            [
+                {"lights": ["mid_2"], "props": {"speed": 255, "pan": 70, "tilt": 40, "color": 0, "gobo": 0}, "suspend": true},
+                {"lights": ["mid_2"], "props": {"dim": 36}, "duration": 0.5, "wait": true}
+            ]
+        ],
+        "_BUTTON_HOLD": [
+            [
+                {"lights": ["mid_1", "mid_2"], "props": {"dim": 0}, "duration": 0.5}
+            ]
+        ]
+    }
+}
