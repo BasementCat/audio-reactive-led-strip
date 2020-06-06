@@ -2,6 +2,7 @@
 
 import argparse
 import logging
+import signal
 
 from app import NoData
 from app.lib.config import parse_config
@@ -17,6 +18,8 @@ from app.outputs.dmx import DMX
 
 
 logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger()
+last_signal = None
 
 
 def parse_args():
@@ -27,6 +30,14 @@ def parse_args():
     p.add_argument('-M', '--monitor', action='store_true', help="Print monitor data (except audio) to the console")
     p.add_argument('-f', '--filter', action='append', help="Filter the monitor data")
     return p.parse_args()
+
+
+def install_sighandler():
+    def _sig_handler(signo, frame):
+        global last_signal
+        last_signal = signo
+    signal.signal(signal.SIGINT, _sig_handler)
+    signal.signal(signal.SIGTERM, _sig_handler)
 
 
 def run(args):
@@ -61,27 +72,28 @@ def run(args):
     # Add DMX last so it gets called last
     if config.get('DMX_DEVICE'):
         tasks.append(DMX('dmx', config))
+    if config.get('DMXNET_ESP_NODE'):
+        tasks.append(DMXNet('dmxnet', config))
 
     network = Network(config, lights, monitor=args.monitor, monitor_filter=args.filter)
     tasks.insert(0, NetworkTask('netinput', config, network, 'input'))
     tasks.append(NetworkTask('netoutput', config, network, 'output'))
 
     try:
-        try:
-            data = {'network': network}
-            for t in tasks:
-                t.start(data)
+        install_sighandler()
+        data = {'network': network}
+        for t in tasks:
+            t.start(data)
 
-            while True:
-                data = {}
-                for t in tasks:
-                    try:
-                        t.run(data)
-                    except NoData:
-                        break
-        except KeyboardInterrupt:
-            # Suppress
-            pass
+        while last_signal is None:
+            data = {}
+            for t in tasks:
+                try:
+                    t.run(data)
+                except NoData:
+                    break
+
+        logger.info("Exiting with signal %d", last_signal)
     finally:
         for t in tasks:
             t.stop()
