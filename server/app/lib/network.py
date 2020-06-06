@@ -23,10 +23,12 @@ def send_monitor(output, op, opstate=None, opname=None, **state):
 
 
 class Network(object):
-    def __init__(self, config, lights=None, monitor=False):
+    def __init__(self, config, lights=None, monitor=False, monitor_filter=None):
         self.config = config
         self.lights = lights or []
-        self.monitor = monitor
+        self.monitor = False
+        if monitor:
+            self.monitor = list(self._parse_monitor_filter(monitor_filter))
 
         host = self.config.get('NETWORK_HOST', '0.0.0.0')
         port = self.config.get('NETWORK_PORT', 37737)
@@ -43,6 +45,43 @@ class Network(object):
         self.input_queue = {}
 
         logger.info("Network listening on %s:%d", host, port)
+
+    def _parse_monitor_filter(self, filters):
+        expr = re.compile(r'^(\w+)(?:(==|!=|>|>=|<|<=|~=|!~=)(.+))?$')
+        if not filters:
+            yield lambda e: True
+
+        def ex_wrap(filter, key, fn):
+            def ex_wrap_impl(v):
+                if key in v:
+                    try:
+                        return fn(v[key])
+                    except:
+                        logger.error("Filter %s failed", filter, exc_info=True)
+            return ex_wrap_impl
+
+        for f in filters:
+            m = expr.match(f)
+            if m:
+                key, op, value = m.groups()
+                if op == '==':
+                    yield ex_wrap(f, key, lambda v: v == type(v)(value))
+                if op == '!=':
+                    yield ex_wrap(f, key, lambda v: v != type(v)(value))
+                if op == '>':
+                    yield ex_wrap(f, key, lambda v: v > type(v)(value))
+                if op == '>=':
+                    yield ex_wrap(f, key, lambda v: v >= type(v)(value))
+                if op == '<':
+                    yield ex_wrap(f, key, lambda v: v < type(v)(value))
+                if op == '<=':
+                    yield ex_wrap(f, key, lambda v: v <= type(v)(value))
+                if op == '~=':
+                    yield ex_wrap(f, key, lambda v: re.search(value, str(v)))
+                if op == '!~=':
+                    yield ex_wrap(f, key, lambda v: not re.search(value, str(v)))
+            else:
+                logger.error("Failed to parse filter: '%s'", f)
 
     def start(self, data):
         pass
@@ -150,13 +189,14 @@ class Network(object):
                                 self.send_error(s, 'general', e.__class__.__name__, str(e))
 
     def run_output(self, data):
-        # TODO: only send to monitoring clients
         if self.monitor:
             for v in monitor_queue:
-                # TODO: allow filtering
                 if v.get('op') == 'AUDIO':
                     continue
-                print('MONITOR', v)
+                for f in self.monitor:
+                    if f(v):
+                        print('MONITOR', v)
+                        break
         if monitor_queue:
             for c in self.clients:
                 if c in self.monitor_clients:
