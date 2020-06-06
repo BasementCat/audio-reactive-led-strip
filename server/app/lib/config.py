@@ -60,7 +60,8 @@ BASE_CONFIG = {
     'N_ROLLING_HISTORY': 2,
 
     # No music visualization displayed if recorded audio volume below threshold"""
-    'MIN_VOLUME_THRESHOLD': 1e-7,
+    # 'MIN_VOLUME_THRESHOLD': 1e-7,
+    'MIN_VOLUME_THRESHOLD': 0.05,
 }
 
 
